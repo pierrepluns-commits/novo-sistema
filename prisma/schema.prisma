@@ -1,0 +1,250 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model License {
+  id        String   @id @default(uuid())
+  companyId String   @unique
+  plan      String   @default("BASIC") // BASIC, PRO, ENTERPRISE
+  status    String   @default("ACTIVE") // ACTIVE, SUSPENDED, CANCELLED
+  maxUnits  Int      @default(1) // Quota de unidades por licença
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  document  String?  // CNPJ or CPF
+  isActive  Boolean  @default(true)
+  receiptHeader String? // Texto do cabeçalho da impressão
+  receiptFooter String? // Texto do rodapé / termos legais
+  receiptConfig String  @default("{}") // Configurações flexíveis de impressão em JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  license      License?
+  units        Unit[]
+  users        User[]
+  products     Product[]
+  sales        Sale[]
+  transactions FinancialTransaction[]
+}
+
+model Unit {
+  id             String   @id @default(uuid())
+  companyId      String
+  name           String
+  document       String?
+  address        String?
+  contact        String?
+  isHeadquarters Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  company       Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users         User[]
+  stocks        Stock[]
+  sales         Sale[]
+  transactions  FinancialTransaction[]
+  stockMoves    StockMovement[]
+  cashRegisters CashRegister[]
+}
+
+model User {
+  id            String   @id @default(uuid())
+  companyId     String?  // null if SUPER_ADMIN
+  unitId        String?  // null if COMPANY_ADMIN or SUPER_ADMIN
+  name          String
+  email         String   @unique
+  password_hash String
+  role          String   @default("CASHIER") // SUPER_ADMIN, COMPANY_ADMIN, UNIT_MANAGER, CASHIER
+  permissions   String   @default("[]") // JSON string
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company               Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit                  Unit?                  @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  sales                 Sale[]
+  financialTransactions FinancialTransaction[]
+  actionLogs            ActionLog[]
+  stockMoves            StockMovement[]
+  cashRegisters         CashRegister[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  sku         String
+  barcode     String?
+  description String?
+  price       Float
+  cost        Float
+  isKit       Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stocks    Stock[]
+  saleItems SaleItem[]
+  stockMoves StockMovement[]
+  
+  // For Kits:
+  kitItems      ProductBundle[] @relation("KitParent")
+  partOfKits    ProductBundle[] @relation("KitComponent")
+
+  @@unique([companyId, sku])
+}
+
+model ProductBundle {
+  id            String @id @default(uuid())
+  kitId         String
+  componentId   String
+  quantity      Int    @default(1)
+
+  kit       Product @relation("KitParent", fields: [kitId], references: [id], onDelete: Cascade)
+  component Product @relation("KitComponent", fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([kitId, componentId])
+}
+
+model Stock {
+  id        String   @id @default(uuid())
+  productId String
+  unitId    String
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, unitId])
+}
+
+model StockMovement {
+  id          String   @id @default(uuid())
+  productId   String
+  unitId      String
+  userId      String
+  type        String   // IN, OUT
+  quantity    Int
+  reason      String   // SALE, CANCEL, TRANSFER, MANUAL_ADJUST, KIT_ASSEMBLY
+  referenceId String?  // ID da Venda, Transferencia, etc.
+  createdAt   DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+model Sale {
+  id            String   @id @default(uuid())
+  companyId     String
+  unitId        String
+  userId        String
+  totalAmount   Float
+  paymentMethod String   @default("CASH") // CASH, CREDIT_CARD, DEBIT_CARD, PIX
+  installments  Int      @default(1)
+  cardFee       Float    @default(0)
+  status        String   @default("COMPLETED") // COMPLETED, CANCELLED
+  createdAt     DateTime @default(now())
+
+  company Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit    Unit       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user    User       @relation(fields: [userId], references: [id])
+  items   SaleItem[]
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  productId String
+  quantity  Int
+  unitPrice Float
+  unitCost  Float   @default(0)
+  isFreebie Boolean @default(false)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model FinancialTransaction {
+  id              String   @id @default(uuid())
+  companyId       String
+  unitId          String
+  type            String   // INCOME, EXPENSE
+  amount          Float
+  description     String
+  category        String?
+  transactionDate DateTime
+  userId          String
+  cashRegisterId  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit         Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id])
+  cashRegister CashRegister? @relation(fields: [cashRegisterId], references: [id], onDelete: SetNull)
+}
+
+model CashRegister {
+  id          String    @id @default(uuid())
+  unitId      String
+  userId      String
+  openedAt    DateTime  @default(now())
+  closedAt    DateTime?
+  openingBalance Float  @default(0)
+  closingBalance Float?
+  closingCash    Float?
+  closingPix     Float?
+  closingDebit   Float?
+  closingCredit  Float?
+  status      String    @default("OPEN") // OPEN, CLOSED
+
+  unit         Unit                   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user         User                   @relation(fields: [userId], references: [id])
+  transactions FinancialTransaction[]
+}
+
+model ActionLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String   // CREATE_PRODUCT, CANCEL_SALE, UPDATE_PERMISSIONS, etc.
+  details   String?  // JSON stringified details
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SystemConfig {
+  id             String  @id @default("default")
+  appName        String  @default("Lumus ERP")
+  primaryColor   String  @default("#3b82f6") // tailwind blue-500
+  secondaryColor String  @default("#06b6d4") // tailwind cyan-500
+  plansConfig    String  @default("[]") // JSON representativo de preços e limites
+}
+
+model LicenseRequest {
+  id            String   @id @default(uuid())
+  companyName   String
+  ownerName     String
+  email         String   @unique
+  phone         String?
+  plan          String   @default("BASIC")
+  maxUnits      Int      @default(1)
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  paymentStatus String   @default("UNPAID") // UNPAID, PAID
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

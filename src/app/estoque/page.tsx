@@ -68,25 +68,27 @@ export default async function Estoque() {
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <Package className="w-8 h-8 text-blue-500" />
+          <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2.5">
+            <Package className="w-7 h-7 md:w-8 md:h-8 text-blue-500" />
             Gestão de Estoque
           </h1>
-          <p className="text-slate-400 mt-1">Gerencie produtos e quantidades</p>
+          <p className="text-sm text-slate-400 mt-1">Gerencie produtos e quantidades</p>
         </div>
-        <div className="flex gap-3">
-          <Link href="/estoque/historico">
-            <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Link href="/estoque/historico" className="flex-1 sm:flex-initial">
+            <Button variant="outline" className="w-full border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center justify-center gap-2 py-2 px-3 text-xs sm:text-sm">
               <History className="w-4 h-4" />
               Histórico
             </Button>
           </Link>
           {canManage && (
-            <EstoqueClientWrapper units={units} />
+            <div className="flex-1 sm:flex-initial">
+              <EstoqueClientWrapper units={units} />
+            </div>
           )}
           {canManage && (
-            <Link href="/estoque/novo">
-              <Button className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 shadow-[0_0_15px_rgba(37,99,235,0.3)]">
+            <Link href="/estoque/novo" className="flex-1 sm:flex-initial">
+              <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-2 py-2 px-3 text-xs sm:text-sm shadow-[0_0_15px_rgba(37,99,235,0.3)]">
                 <Plus className="w-4 h-4" />
                 Novo Produto
               </Button>
@@ -96,56 +98,56 @@ export default async function Estoque() {
       </div>
 
       {/* Cards de Resumos Financeiros Premium (Valor de Custo e Venda lado a lado) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
         {/* Card 1: Investimento Total (Custo das Mercadorias) */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] to-[#0a0f1c] border border-slate-800/80 rounded-2xl p-6 shadow-xl transition-all hover:border-blue-500/30 group">
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] to-[#0a0f1c] border border-slate-800/80 rounded-2xl p-4 md:p-6 shadow-xl transition-all hover:border-blue-500/30 group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors"></div>
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Investimento em Estoque</p>
-              <h3 className="text-2xl font-bold text-white mt-2 font-mono">
+              <p className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">Investimento em Estoque</p>
+              <h3 className="text-xl md:text-2xl font-bold text-white mt-1.5 md:mt-2 font-mono">
                 {totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </h3>
-              <p className="text-xs text-slate-500 mt-2">Soma do valor de custo × estoque</p>
+              <p className="text-[10px] md:text-xs text-slate-500 mt-1 md:mt-2">Soma do valor de custo × estoque</p>
             </div>
-            <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500 border border-blue-500/20">
-              <Coins className="w-6 h-6" />
+            <div className="p-2 md:p-3 bg-blue-500/10 rounded-xl text-blue-500 border border-blue-500/20">
+              <Coins className="w-5 h-5 md:w-6 md:h-6" />
             </div>
           </div>
         </div>
 
         {/* Card 2: Valor Estimado de Venda (Faturamento Potencial) */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] to-[#0a0f1c] border border-slate-800/80 rounded-2xl p-6 shadow-xl transition-all hover:border-emerald-500/30 group">
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] to-[#0a0f1c] border border-slate-800/80 rounded-2xl p-4 md:p-6 shadow-xl transition-all hover:border-emerald-500/30 group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Retorno Potencial (Venda)</p>
-              <h3 className="text-2xl font-bold text-emerald-400 mt-2 font-mono">
+              <p className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">Retorno Potencial (Venda)</p>
+              <h3 className="text-xl md:text-2xl font-bold text-emerald-400 mt-1.5 md:mt-2 font-mono">
                 {totalSale.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </h3>
-              <p className="text-xs text-slate-500 mt-2">Soma do preço de venda × estoque</p>
+              <p className="text-[10px] md:text-xs text-slate-500 mt-1 md:mt-2">Soma do preço de venda × estoque</p>
             </div>
-            <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 border border-emerald-500/20">
-              <TrendingUp className="w-6 h-6" />
+            <div className="p-2 md:p-3 bg-emerald-500/10 rounded-xl text-emerald-500 border border-emerald-500/20">
+              <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
             </div>
           </div>
         </div>
 
         {/* Card 3: Lucro Líquido Esperado e Margem */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] to-[#0a0f1c] border border-slate-800/80 rounded-2xl p-6 shadow-xl transition-all hover:border-purple-500/30 group">
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#0f172a] to-[#0a0f1c] border border-slate-800/80 rounded-2xl p-4 md:p-6 shadow-xl transition-all hover:border-purple-500/30 group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors"></div>
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Lucro Líquido Esperado</p>
-              <h3 className="text-2xl font-bold text-purple-400 mt-2 font-mono">
+              <p className="text-xs md:text-sm font-semibold text-slate-400 uppercase tracking-wider">Lucro Líquido Esperado</p>
+              <h3 className="text-xl md:text-2xl font-bold text-purple-400 mt-1.5 md:mt-2 font-mono">
                 {totalProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </h3>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-[10px] md:text-xs text-slate-500 mt-1 md:mt-2">
                 Valor de venda total menos o custo total
               </p>
             </div>
-            <div className="p-3 bg-purple-500/10 rounded-xl text-purple-500 border border-purple-500/20">
-              <BarChart3 className="w-6 h-6" />
+            <div className="p-2 md:p-3 bg-purple-500/10 rounded-xl text-purple-500 border border-purple-500/20">
+              <BarChart3 className="w-5 h-5 md:w-6 md:h-6" />
             </div>
           </div>
         </div>

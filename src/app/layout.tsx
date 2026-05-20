@@ -66,14 +66,14 @@ export default async function RootLayout({
         {session && isAppRoute ? (
           <div className="flex h-screen bg-[#060b14] text-slate-200 overflow-hidden">
             <Sidebar />
-            <div className="flex-1 flex flex-col relative z-0">
+            <div className="flex-1 flex flex-col min-w-0 relative">
               <Header 
                 userName={session.name as string} 
                 units={units}
                 selectedUnitId={selectedUnitId || ""}
                 role={session.role}
               />
-              <main className="flex-1 p-8 overflow-y-auto relative z-0">
+              <main className="flex-1 p-4 md:p-8 overflow-y-auto">
                 {children}
               </main>
             </div>

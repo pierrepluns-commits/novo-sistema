@@ -6,7 +6,8 @@ import {
   CheckCircle2, ChevronRight, BarChart3, ShoppingBag, 
   ShieldCheck, X, Phone, Mail, Building, User, Info,
   ArrowRight, HelpCircle, Star, Sparkles, Sliders, ChevronDown,
-  LayoutGrid, Receipt, Landmark, RefreshCw, Users, ShieldAlert
+  LayoutGrid, Receipt, Landmark, RefreshCw, Users, ShieldAlert,
+  CreditCard, QrCode, Lock, Check, Copy, ExternalLink, Loader2
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { createLicenseRequestAction } from "@/app/actions/mestre";
@@ -54,8 +55,29 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Interactive Checkout States
+  const [checkoutStep, setCheckoutStep] = useState<"FORM" | "PAYMENT" | "SUCCESS">("FORM");
+  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARD">("PIX");
+  const [requestId, setRequestId] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
+  
+  // Credit Card States
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [authorizingStep, setAuthorizingStep] = useState("");
+  const [copiedCredentials, setCopiedCredentials] = useState(false);
+
   const handleOpenSignup = (planId: string) => {
     setSelectedPlan(planId);
+    setCheckoutStep("FORM");
+    setPaymentMethod("PIX");
+    setCardNumber("");
+    setCardName("");
+    setCardExpiry("");
+    setCardCvv("");
     setIsModalOpen(true);
   };
 
@@ -77,20 +99,95 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
       const res = await createLicenseRequestAction(formData);
       if (res.error) {
         toast.error(res.error);
+      } else if (res.requestId) {
+        setRequestId(res.requestId);
+        setCheckoutStep("PAYMENT");
+        toast.success("Solicitação registrada! Prossiga para o faturamento.");
       } else {
-        toast.success("Solicitação enviada com sucesso! Aguarde a liberação administrativa.", { duration: 6000 });
-        setIsModalOpen(false);
-        // Clear form
-        setCompanyName("");
-        setOwnerName("");
-        setEmail("");
-        setPhone("");
+        toast.error("Erro ao processar resposta do servidor.");
       }
     } catch (err: any) {
       toast.error("Erro ao enviar solicitação.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Card Inputs Handlers & Brand Helpers
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, "");
+    if (val.length > 16) val = val.substring(0, 16);
+    const formatted = val.match(/.{1,4}/g)?.join(" ") || val;
+    setCardNumber(formatted);
+  };
+
+  const handleCardExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, "");
+    if (val.length > 4) val = val.substring(0, 4);
+    if (val.length >= 3) {
+      val = val.substring(0, 2) + "/" + val.substring(2);
+    }
+    setCardExpiry(val);
+  };
+
+  const getCardBrand = (num: string) => {
+    const clean = num.replace(/\D/g, "");
+    if (clean.startsWith("4")) return "VISA";
+    if (/^5[1-5]/.test(clean)) return "MASTERCARD";
+    if (/^3[47]/.test(clean)) return "AMEX";
+    if (/^6(011|5)/.test(clean)) return "DISCOVER";
+    return "GENERIC";
+  };
+
+  const triggerWebhookSuccess = async (reqId: string) => {
+    try {
+      const response = await fetch("/api/webhooks/payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ requestId: reqId })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setTempPassword(data.tempPassword);
+        setCheckoutStep("SUCCESS");
+        toast.success("Pagamento Confirmado! Acesso liberado.");
+      } else {
+        toast.error(data.error || "Erro ao processar ativação de licença.");
+      }
+    } catch (err: any) {
+      toast.error("Falha ao simular confirmação de pagamento.");
+    }
+  };
+
+  const handleCardPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cardNumber || !cardName || !cardExpiry || !cardCvv) {
+      toast.error("Por favor, preencha todos os dados do cartão.");
+      return;
+    }
+    setIsAuthorizing(true);
+    
+    setAuthorizingStep("Conectando com o gateway bancário...");
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    setAuthorizingStep("Validando saldo e limite do cartão...");
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    setAuthorizingStep("Autorizando cobrança comercial...");
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    await triggerWebhookSuccess(requestId);
+    setIsAuthorizing(false);
+  };
+
+  const handleCopyCredentials = () => {
+    const text = `Acesso ${appName}:\nLogin: ${email}\nSenha Provisória: ${tempPassword}\nLink de Login: ${window.location.origin}/login`;
+    navigator.clipboard.writeText(text);
+    setCopiedCredentials(true);
+    toast.success("Credenciais copiadas!");
+    setTimeout(() => setCopiedCredentials(false), 2000);
   };
 
   // Convert Hex colors to RGB values for transparent glow effects
@@ -106,6 +203,18 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-100 selection:bg-cyan-500/30 selection:text-white font-sans antialiased overflow-x-hidden">
+      
+      {/* Inline styles for custom animations */}
+      <style>{`
+        @keyframes scan-animation {
+          0% { top: 0%; opacity: 0.8; }
+          50% { top: 100%; opacity: 0.8; }
+          100% { top: 0%; opacity: 0.8; }
+        }
+        .animate-scanning {
+          animation: scan-animation 3s linear infinite;
+        }
+      `}</style>
       
       {/* Navbar */}
       <nav className="fixed w-full z-50 bg-[#030712]/70 backdrop-blur-xl border-b border-white/5">
@@ -627,127 +736,469 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
         </div>
       </footer>
 
-      {/* -------------------- SIGNUP ACQUISITION MODAL -------------------- */}
+      {/* -------------------- DYNAMIC SIGNUP & CHECKOUT MODAL -------------------- */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0c1225] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl p-8 relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-[#0c1225] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl p-6 md:p-8 relative animate-in zoom-in-95 duration-200 my-8">
+            
+            {/* Close button - hidden in success to force onboarding finish */}
+            {checkoutStep !== "SUCCESS" && (
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
 
-            <h3 className="text-2xl font-black text-white mb-2 flex items-center gap-2">
-              <Building className="w-6 h-6" style={{ color: primaryColor }} />
-              Adquirir Licença - {appName}
-            </h3>
-            <p className="text-xs text-slate-400 mb-6 flex items-center gap-1.5 leading-relaxed">
-              <Info className="w-4 h-4 text-slate-500 shrink-0" />
-              Solicite a liberação da sua licença SaaS. O dono da rede aprovará seu acesso imediatamente.
-            </p>
+            {/* STEP 1: REGISTRATION FORM */}
+            {checkoutStep === "FORM" && (
+              <>
+                <h3 className="text-2xl font-black text-white mb-2 flex items-center gap-2">
+                  <Building className="w-6 h-6" style={{ color: primaryColor }} />
+                  Adquirir Licença - {appName}
+                </h3>
+                <p className="text-xs text-slate-400 mb-6 flex items-center gap-1.5 leading-relaxed">
+                  <Info className="w-4 h-4 text-slate-500 shrink-0" />
+                  Solicite a liberação da sua licença SaaS. O faturamento e ativação serão gerados na próxima tela.
+                </p>
 
-            <form onSubmit={handleSubmitRequest} className="space-y-4 text-left">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1.5">Nome da Empresa</label>
-                  <div className="relative">
-                    <Building className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Comercial Zionix"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
-                    />
+                <form onSubmit={handleSubmitRequest} className="space-y-4 text-left">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Nome da Empresa</label>
+                      <div className="relative">
+                        <Building className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ex: Comercial Zionix"
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Nome do Proprietário</label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ex: Zionix Silva"
+                          value={ownerName}
+                          onChange={(e) => setOwnerName(e.target.value)}
+                          className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1.5">E-mail de Contato</label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="Ex: admin@comercial.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Telefone de Contato</label>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="tel"
+                          placeholder="Ex: (11) 99999-9999"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-1.5">Plano Contratado</label>
+                    <select
+                      value={selectedPlan}
+                      onChange={(e) => setSelectedPlan(e.target.value)}
+                      className="w-full px-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all cursor-pointer font-bold"
+                    >
+                      {plans.map((p: any) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — R$ {p.price.toFixed(2)} / mês ({p.maxUnits === 99 ? 'Lojas Ilimitadas' : `Até ${p.maxUnits} ${p.maxUnits === 1 ? 'Loja' : 'Lojas'}`})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-6 border-t border-slate-800/80">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      disabled={submitting}
+                      className="px-5 py-3 text-xs font-bold bg-slate-800 hover:bg-slate-750 text-white rounded-xl border border-slate-700 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      style={{ 
+                        backgroundColor: primaryColor,
+                        boxShadow: `0 0 20px rgba(${primaryRGB}, 0.35)`
+                      }}
+                      className="hover:scale-103 active:scale-98 text-white font-black py-3 px-8 rounded-xl text-xs flex items-center gap-1.5 hover:brightness-110 transition-all"
+                    >
+                      {submitting ? "Processando..." : "Confirmar Envio"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {/* STEP 2: CHECKOUT BILLING PANEL (PIX & CREDIT CARD) */}
+            {checkoutStep === "PAYMENT" && (
+              <div className="space-y-6">
+                
+                {/* Plan header resume */}
+                <div className="bg-[#050914] border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                  <div>
+                    <span style={{ color: primaryColor }} className="text-[10px] font-black uppercase tracking-widest block font-mono">Resumo do Pedido</span>
+                    <h4 className="text-lg font-extrabold text-white">Licença {plans.find(p => p.id === selectedPlan)?.name}</h4>
+                    <span className="text-xs text-slate-400">{plans.find(p => p.id === selectedPlan)?.maxUnits === 99 ? 'Lojas Ilimitadas' : `${plans.find(p => p.id === selectedPlan)?.maxUnits} Unidades`}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black text-white font-mono">R$ {plans.find(p => p.id === selectedPlan)?.price.toFixed(2)}</span>
+                    <span className="text-slate-500 text-[10px] block font-bold">faturamento mensal</span>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1.5">Nome do Proprietário</label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Zionix Silva"
-                      value={ownerName}
-                      onChange={(e) => setOwnerName(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1.5">E-mail de Contato</label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      required
-                      placeholder="Ex: admin@comercial.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
-                    />
-                  </div>
+                {/* Checkout tabs buttons */}
+                <div className="flex border-b border-slate-800 gap-2">
+                  <button
+                    onClick={() => setPaymentMethod("PIX")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold border-b-2 transition-all relative ${
+                      paymentMethod === "PIX" ? "text-cyan-400 border-cyan-400 font-extrabold" : "border-transparent text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <QrCode className="w-4 h-4" />
+                    PIX (Ativação Instantânea)
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("CARD")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold border-b-2 transition-all relative ${
+                      paymentMethod === "CARD" ? "text-cyan-400 border-cyan-400 font-extrabold" : "border-transparent text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Cartão de Crédito
+                  </button>
                 </div>
 
+                {/* PIX TAB SCREEN */}
+                {paymentMethod === "PIX" && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      {/* QR Code Container */}
+                      <div className="p-4 bg-white rounded-2xl shadow-[0_0_25px_rgba(255,255,255,0.1)] relative group overflow-hidden border-2 border-cyan-400/50">
+                        {/* Simulated QR Code SVG */}
+                        <svg className="w-36 h-36 text-slate-950" viewBox="0 0 100 100">
+                          <rect width="100" height="100" fill="white"/>
+                          {/* Outer borders */}
+                          <rect x="5" y="5" width="25" height="25" fill="black"/>
+                          <rect x="8" y="8" width="19" height="19" fill="white"/>
+                          <rect x="11" y="11" width="13" height="13" fill="black"/>
+
+                          <rect x="70" y="5" width="25" height="25" fill="black"/>
+                          <rect x="73" y="8" width="19" height="19" fill="white"/>
+                          <rect x="76" y="11" width="13" height="13" fill="black"/>
+
+                          <rect x="5" y="70" width="25" height="25" fill="black"/>
+                          <rect x="8" y="73" width="19" height="19" fill="white"/>
+                          <rect x="11" y="76" width="13" height="13" fill="black"/>
+
+                          {/* Random pixel data squares */}
+                          <rect x="35" y="10" width="8" height="8" fill="black"/>
+                          <rect x="45" y="5" width="6" height="12" fill="black"/>
+                          <rect x="55" y="15" width="10" height="6" fill="black"/>
+                          
+                          <rect x="10" y="35" width="12" height="6" fill="black"/>
+                          <rect x="25" y="45" width="8" height="8" fill="black"/>
+                          <rect x="5" y="55" width="15" height="8" fill="black"/>
+                          
+                          <rect x="35" y="35" width="30" height="30" fill="black"/>
+                          <rect x="40" y="40" width="20" height="20" fill="white"/>
+                          <rect x="45" y="45" width="10" height="10" fill="black"/>
+                          
+                          <rect x="75" y="35" width="15" height="6" fill="black"/>
+                          <rect x="85" y="45" width="10" height="12" fill="black"/>
+                          <rect x="70" y="60" width="8" height="8" fill="black"/>
+
+                          <rect x="35" y="75" width="12" height="15" fill="black"/>
+                          <rect x="55" y="80" width="15" height="8" fill="black"/>
+                          <rect x="75" y="75" width="20" height="20" fill="black"/>
+                          <rect x="80" y="80" width="10" height="10" fill="white"/>
+                        </svg>
+                        
+                        {/* Scanning line animation */}
+                        <div className="absolute left-0 right-0 h-0.5 bg-cyan-400 shadow-[0_0_8px_#00f3ff] animate-scanning top-0 pointer-events-none"></div>
+                      </div>
+                      
+                      {/* Copy & Paste Code */}
+                      <div className="w-full space-y-1.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block text-center">Pix Copia e Cola:</span>
+                        <div className="flex gap-2 items-center bg-[#040814] border border-slate-800 p-2.5 rounded-xl">
+                          <input
+                            type="text"
+                            readOnly
+                            value={`00020101021226930014br.gov.bcb.pix2571${systemConfig?.pixKey || 'pix-qrcodex-key-goes-here-simulated-billing-transaction-lumus-erp-checkout-live'}`}
+                            className="flex-1 bg-transparent text-[11px] text-slate-400 font-mono outline-none select-all truncate"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`00020101021226930014br.gov.bcb.pix2571${systemConfig?.pixKey || 'pix-qrcodex-key-goes-here-simulated-billing-transaction-lumus-erp-checkout-live'}`);
+                              toast.success("Código PIX copiado!");
+                            }}
+                            className="bg-slate-900 border border-slate-800 hover:bg-slate-800 p-2 rounded-lg text-slate-450 hover:text-white transition-colors"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Waiting feedback & simulate button */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-center gap-2 text-xs text-slate-450">
+                        <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                        <span>Aguardando a confirmação do pagamento pelo banco...</span>
+                      </div>
+
+                      <button
+                        onClick={() => triggerWebhookSuccess(requestId)}
+                        style={{ 
+                          backgroundColor: primaryColor,
+                          boxShadow: `0 0 20px rgba(${primaryRGB}, 0.3)`
+                        }}
+                        className="w-full py-4 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98 transition-all hover:brightness-110 cursor-pointer shadow-md"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-white animate-pulse" />
+                        Confirmar Pagamento Simulado (Webhook)
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* CREDIT CARD TAB SCREEN */}
+                {paymentMethod === "CARD" && (
+                  <div className="space-y-5">
+                    
+                    {/* Visual Card Preview */}
+                    <div 
+                      style={{ 
+                        background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                        boxShadow: `0 0 25px rgba(${primaryRGB}, 0.25)`
+                      }}
+                      className="w-full h-44 rounded-2xl p-5 relative overflow-hidden text-white font-mono flex flex-col justify-between select-none shadow-lg border border-white/10"
+                    >
+                      {/* Chip & Brand */}
+                      <div className="flex justify-between items-start">
+                        <div className="w-10 h-8 bg-gradient-to-r from-yellow-300 to-amber-500 rounded-md opacity-80 border border-amber-600/30 flex items-center justify-center relative">
+                          <div className="absolute inset-1 border border-amber-700/20 rounded"></div>
+                          <div className="w-6 h-[1px] bg-amber-700/30 absolute left-2 top-2"></div>
+                          <div className="w-6 h-[1px] bg-amber-700/30 absolute left-2 top-4"></div>
+                          <div className="w-6 h-[1px] bg-amber-700/30 absolute left-2 top-6"></div>
+                        </div>
+                        <span className="text-xs font-black tracking-widest bg-black/20 px-2 py-0.5 rounded uppercase">
+                          {getCardBrand(cardNumber)}
+                        </span>
+                      </div>
+
+                      {/* Number */}
+                      <div className="text-lg font-black tracking-widest text-center my-3 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                        {cardNumber || "•••• •••• •••• ••••"}
+                      </div>
+
+                      {/* Name & Expiry */}
+                      <div className="flex justify-between items-end text-xs">
+                        <div className="truncate pr-4 max-w-[70%]">
+                          <span className="text-[9px] text-white/50 block font-sans">Titular</span>
+                          <span className="font-bold tracking-wider uppercase truncate block">
+                            {cardName || "NOME DO TITULAR"}
+                          </span>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="text-[9px] text-white/50 block font-sans">Validade</span>
+                          <span className="font-bold tracking-wider">
+                            {cardExpiry || "MM/YY"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Form */}
+                    <form onSubmit={handleCardPaymentSubmit} className="space-y-4 relative text-left">
+                      {isAuthorizing && (
+                        <div className="absolute inset-0 bg-[#0c1225]/90 backdrop-blur-sm z-20 rounded-2xl flex flex-col items-center justify-center text-center p-4">
+                          <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-3" />
+                          <h4 className="text-sm font-extrabold text-white uppercase tracking-wider">{authorizingStep}</h4>
+                          <p className="text-[10px] text-slate-400 mt-1">Isso simula o retorno real da API bancária em 1.8 segundos.</p>
+                        </div>
+                      )}
+
+                      {/* Card Number */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1.5">Número do Cartão</label>
+                        <div className="relative">
+                          <CreditCard className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: 4111 2222 3333 4444"
+                            value={cardNumber}
+                            onChange={handleCardNumberChange}
+                            className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-[#040814] border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Name */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1.5">Nome Impresso no Cartão</label>
+                        <div className="relative">
+                          <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: ZIONIX SILVA"
+                            value={cardName}
+                            onChange={(e) => setCardName(e.target.value.toUpperCase())}
+                            className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-[#040814] border border-slate-700 rounded-xl text-white font-sans focus:outline-none focus:border-cyan-500 transition-all font-semibold uppercase"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Expiry */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-1.5">Validade</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="MM/YY"
+                            value={cardExpiry}
+                            onChange={handleCardExpiryChange}
+                            className="w-full px-3 py-2.5 text-xs bg-[#040814] border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500 transition-all text-center"
+                          />
+                        </div>
+
+                        {/* CVV */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-1.5">CVC / CVV</label>
+                          <input
+                            type="password"
+                            required
+                            maxLength={4}
+                            placeholder="123"
+                            value={cardCvv}
+                            onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ""))}
+                            className="w-full px-3 py-2.5 text-xs bg-[#040814] border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500 transition-all text-center"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isAuthorizing}
+                        style={{ 
+                          backgroundColor: primaryColor,
+                          boxShadow: `0 0 20px rgba(${primaryRGB}, 0.3)`
+                        }}
+                        className="w-full py-3.5 mt-2 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98 transition-all hover:brightness-110 cursor-pointer shadow-md disabled:opacity-50"
+                      >
+                        <Lock className="w-4 h-4" />
+                        Autorizar Cartão e Assinar
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 3: PAYMENT CONFIRMED / ACCESS GRANTED SCREEN */}
+            {checkoutStep === "SUCCESS" && (
+              <div className="text-center space-y-6">
+                
+                {/* Neon Sparkle Header */}
+                <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30 animate-pulse">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                </div>
+
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1.5">Telefone de Contato</label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      placeholder="Ex: (11) 99999-9999"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all font-semibold"
-                    />
+                  <h3 className="text-2xl font-black text-white">Pagamento Confirmado!</h3>
+                  <p className="text-xs text-slate-400 mt-1">Sua conta comercial SaaS foi liberada e está ativada.</p>
+                </div>
+
+                {/* Credentials Panel */}
+                <div className="bg-[#040814] border border-slate-800 rounded-2xl p-5 text-left space-y-4 font-mono text-xs relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none"></div>
+                  
+                  <div>
+                    <span className="text-slate-500 block text-[9px] font-bold uppercase tracking-wider">Painel Administrativo:</span>
+                    <span className="text-blue-400 break-all font-bold flex items-center gap-1">
+                      {window.location.origin}/login
+                      <ExternalLink className="w-3 h-3 text-blue-500 shrink-0" />
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[9px] font-bold uppercase tracking-wider">Seu E-mail de Acesso:</span>
+                    <span className="text-slate-200 font-bold">{email}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[9px] font-bold uppercase tracking-wider">Senha Provisória Gerada:</span>
+                    <span className="text-emerald-400 font-extrabold text-sm tracking-wider">{tempPassword}</span>
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1.5">Plano Contratado</label>
-                <select
-                  value={selectedPlan}
-                  onChange={(e) => setSelectedPlan(e.target.value)}
-                  className="w-full px-3.5 py-3 text-sm bg-[#040814] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-cyan-500 transition-all cursor-pointer font-bold"
-                >
-                  {plans.map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — R$ {p.price.toFixed(2)} / mês ({p.maxUnits === 99 ? 'Lojas Ilimitadas' : `Até ${p.maxUnits} ${p.maxUnits === 1 ? 'Loja' : 'Lojas'}`})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* Action Controls */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={handleCopyCredentials}
+                    className="flex-1 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-colors"
+                  >
+                    {copiedCredentials ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-cyan-400" />}
+                    {copiedCredentials ? "Copiado!" : "Copiar Credenciais"}
+                  </button>
 
-              <div className="flex justify-end gap-3 pt-6 border-t border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={submitting}
-                  className="px-5 py-3 text-xs font-bold bg-slate-800 hover:bg-slate-750 text-white rounded-xl border border-slate-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{ 
-                    backgroundColor: primaryColor,
-                    boxShadow: `0 0 20px rgba(${primaryRGB}, 0.35)`
-                  }}
-                  className="hover:scale-103 active:scale-98 text-white font-black py-3 px-8 rounded-xl text-xs flex items-center gap-1.5 hover:brightness-110 transition-all"
-                >
-                  {submitting ? "Processando..." : "Confirmar Envio"}
-                </button>
+                  <Link href="/login" className="flex-1">
+                    <button
+                      style={{ 
+                        backgroundColor: primaryColor,
+                        boxShadow: `0 0 20px rgba(${primaryRGB}, 0.35)`
+                      }}
+                      className="w-full text-white font-black py-3.5 px-6 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all hover:scale-102 hover:brightness-110 cursor-pointer shadow-md"
+                    >
+                      Acessar o CyberERP
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </Link>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}

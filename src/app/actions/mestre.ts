@@ -35,6 +35,26 @@ export async function getSystemConfig() {
   }
 }
 
+// 1.1. Fetch sanitized system branding config for public pages (protects keys/secrets)
+export async function getPublicSystemConfig() {
+  try {
+    const config = await getSystemConfig();
+    if (!config) return null;
+
+    return {
+      id: config.id,
+      appName: config.appName,
+      primaryColor: config.primaryColor,
+      secondaryColor: config.secondaryColor,
+      plansConfig: config.plansConfig,
+      pixKey: config.pixKey
+    };
+  } catch (error) {
+    console.error("Erro ao obter PublicSystemConfig:", error);
+    return null;
+  }
+}
+
 // 2. Update system config
 export async function updateSystemConfig(formData: FormData) {
   const session = await getSession();
@@ -63,6 +83,32 @@ export async function updateSystemConfig(formData: FormData) {
     return { success: true };
   } catch (error: any) {
     return { error: "Erro ao salvar configurações: " + error.message };
+  }
+}
+
+// 2.1. Update payment/bank gateway configurations
+export async function updatePaymentConfig(formData: FormData) {
+  const session = await getSession();
+  if (!session || session.role !== "SUPER_ADMIN") {
+    return { error: "Acesso restrito ao Mestre." };
+  }
+
+  const paymentGateway = formData.get("paymentGateway") as string;
+  const gatewayApiKey = formData.get("gatewayApiKey") as string;
+  const webhookSecret = formData.get("webhookSecret") as string;
+  const pixKey = formData.get("pixKey") as string;
+
+  try {
+    await prisma.systemConfig.upsert({
+      where: { id: "default" },
+      update: { paymentGateway, gatewayApiKey, webhookSecret, pixKey },
+      create: { id: "default", paymentGateway, gatewayApiKey, webhookSecret, pixKey }
+    });
+
+    revalidatePath("/mestre/empresas");
+    return { success: true };
+  } catch (error: any) {
+    return { error: "Erro ao salvar configurações de pagamento: " + error.message };
   }
 }
 

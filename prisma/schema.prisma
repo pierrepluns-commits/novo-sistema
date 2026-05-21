@@ -233,6 +233,12 @@ model SystemConfig {
   primaryColor   String  @default("#3b82f6") // tailwind blue-500
   secondaryColor String  @default("#06b6d4") // tailwind cyan-500
   plansConfig    String  @default("[]") // JSON representativo de preços e limites
+  
+  // Configurações do Gateway de Pagamento / Dados Bancários
+  paymentGateway  String? @default("SIMULATOR") // SIMULATOR, ASAAS, MERCADO_PAGO, STRIPE
+  gatewayApiKey   String?
+  webhookSecret   String?
+  pixKey          String?
 }
 
 model LicenseRequest {

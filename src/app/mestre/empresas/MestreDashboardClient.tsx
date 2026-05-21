@@ -13,7 +13,8 @@ import {
   toggleRequestPaymentStatus, 
   approveLicenseRequest, 
   updateSystemConfig,
-  updateCompanyLicenseAction
+  updateCompanyLicenseAction,
+  updatePaymentConfig
 } from "@/app/actions/mestre";
 
 interface MestreDashboardClientProps {
@@ -31,7 +32,7 @@ export function MestreDashboardClient({
   const router = useRouter();
   
   const queryTab = searchParams ? searchParams.get("tab") : null;
-  const [activeTab, setActiveTab] = useState<"empresas" | "solicitacoes" | "config">("empresas");
+  const [activeTab, setActiveTab] = useState<"empresas" | "solicitacoes" | "config" | "pagamentos">("empresas");
   const [requests, setRequests] = useState(initialRequests);
   const [companies, setCompanies] = useState(initialCompanies);
   const [config, setConfig] = useState(initialConfig);
@@ -48,14 +49,23 @@ export function MestreDashboardClient({
     }
   });
 
+  // Payment Config States
+  const [paymentGateway, setPaymentGateway] = useState(initialConfig?.paymentGateway || "SIMULATOR");
+  const [gatewayApiKey, setGatewayApiKey] = useState(initialConfig?.gatewayApiKey || "");
+  const [webhookSecret, setWebhookSecret] = useState(initialConfig?.webhookSecret || "");
+  const [pixKey, setPixKey] = useState(initialConfig?.pixKey || "");
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+
   // Sync tab with search parameters
   useEffect(() => {
-    if (queryTab === "empresas" || queryTab === "solicitacoes" || queryTab === "config") {
-      setActiveTab(queryTab);
+    if (queryTab === "empresas" || queryTab === "solicitacoes" || queryTab === "config" || queryTab === "pagamentos") {
+      setActiveTab(queryTab as any);
     }
   }, [queryTab]);
 
-  const handleTabChange = (tab: "empresas" | "solicitacoes" | "config") => {
+  const handleTabChange = (tab: "empresas" | "solicitacoes" | "config" | "pagamentos") => {
     setActiveTab(tab);
     router.push(`/mestre/empresas?tab=${tab}`);
   };
@@ -374,6 +384,30 @@ export function MestreDashboardClient({
     }
   };
 
+  // Save payment credentials config
+  const handleSavePaymentConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append("paymentGateway", paymentGateway);
+      formData.append("gatewayApiKey", gatewayApiKey);
+      formData.append("webhookSecret", webhookSecret);
+      formData.append("pixKey", pixKey);
+
+      const res = await updatePaymentConfig(formData);
+      if (res.error) {
+        toast.error("Erro ao salvar dados bancários: " + res.error);
+      } else {
+        toast.success("Dados bancários e integração salvos com sucesso!");
+      }
+    } catch (err: any) {
+      toast.error("Erro ao salvar configurações de pagamento.");
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
   const handleCopyCredentials = () => {
     if (!credentialsModal) return;
     const text = `Acesso Lumus ERP:\nLogin: ${credentialsModal.email}\nSenha Provisória: ${credentialsModal.password_hash}\nLink de Login: ${window.location.origin}/login`;
@@ -417,7 +451,8 @@ export function MestreDashboardClient({
         {[
           { id: "empresas", label: "Empresas & Clientes", icon: Building },
           { id: "solicitacoes", label: "Solicitações", count: requests.filter(r => r.status === "PENDING").length, icon: Coins },
-          { id: "config", label: "Customização SaaS & Planos", icon: Settings }
+          { id: "config", label: "Customização SaaS & Planos", icon: Settings },
+          { id: "pagamentos", label: "Integração Bancária", icon: CreditCard }
         ].map(t => {
           const Icon = t.icon;
           const isActive = activeTab === t.id;
@@ -764,6 +799,211 @@ export function MestreDashboardClient({
                 <Save className="w-4 h-4 text-slate-950" />
                 {savingConfig ? "Salvando..." : "Salvar Alterações Globais"}
               </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Tab 4: Bank / Payment Integration Settings */}
+      {activeTab === "pagamentos" && (
+        <div className="bg-[#0a0f1c]/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-xl animate-in fade-in duration-300 space-y-6">
+          <div className="border-b border-slate-800 pb-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-cyan-400" />
+              Integração Bancária e Gateway de Pagamentos
+            </h3>
+            <p className="text-slate-400 text-xs mt-1">Configure as credenciais da sua conta bancária ou gateway de pagamentos para automatizar faturamentos</p>
+          </div>
+
+          <form onSubmit={handleSavePaymentConfig} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Left Column: Form Fields */}
+              <div className="space-y-5">
+                {/* Gateway Provider */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Provedor / Gateway de Pagamento</label>
+                  <select
+                    value={paymentGateway}
+                    onChange={(e) => setPaymentGateway(e.target.value)}
+                    className="w-full px-3.5 py-3 text-sm bg-[#050914] border border-slate-800 rounded-xl text-white font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  >
+                    <option value="SIMULATOR">Simulador Local (Para Testes e Demonstrações)</option>
+                    <option value="ASAAS">Asaas (Recomendado para Pix/Boleto no Brasil)</option>
+                    <option value="MERCADO_PAGO">Mercado Pago (Pix, Boleto & Cartão)</option>
+                    <option value="STRIPE">Stripe (Cartão de Crédito Global & Apple Pay)</option>
+                  </select>
+                </div>
+
+                {/* API Key / Access Token */}
+                {paymentGateway !== "SIMULATOR" && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Chave da API / Access Token</label>
+                    <div className="relative">
+                      <input
+                        type={showApiKey ? "text" : "password"}
+                        value={gatewayApiKey}
+                        onChange={(e) => setGatewayApiKey(e.target.value)}
+                        placeholder={`Insira a chave secreta do ${paymentGateway === 'ASAAS' ? 'Asaas' : paymentGateway === 'MERCADO_PAGO' ? 'Mercado Pago' : 'Stripe'}`}
+                        className="w-full pl-3.5 pr-12 py-3 text-xs bg-[#050914] border border-slate-800 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showApiKey ? <Eye className="w-4 h-4" /> : <Eye className="w-4 h-4 line-through" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">Chave privada utilizada pelo servidor para se comunicar com a API do gateway.</p>
+                  </div>
+                )}
+
+                {/* Webhook Secret Signature */}
+                {paymentGateway !== "SIMULATOR" && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Chave Secreta do Webhook (Assinatura)</label>
+                    <div className="relative">
+                      <input
+                        type={showWebhookSecret ? "text" : "password"}
+                        value={webhookSecret}
+                        onChange={(e) => setWebhookSecret(e.target.value)}
+                        placeholder="Insira o Token de Assinatura / Webhook Secret"
+                        className="w-full pl-3.5 pr-12 py-3 text-xs bg-[#050914] border border-slate-800 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowWebhookSecret(!showWebhookSecret)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showWebhookSecret ? <Eye className="w-4 h-4" /> : <Eye className="w-4 h-4 line-through" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">Evita requisições falsas no endpoint `/api/webhooks/payment` garantindo autenticidade.</p>
+                  </div>
+                )}
+
+                {/* Direct PIX Key Fallback */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Chave PIX de Recebimento Direto (Manual)</label>
+                  <input
+                    type="text"
+                    value={pixKey}
+                    onChange={(e) => setPixKey(e.target.value)}
+                    placeholder="Ex: CNPJ, Telefone, E-mail ou Chave Aleatória"
+                    className="w-full px-3.5 py-3 text-xs bg-[#050914] border border-slate-800 rounded-xl text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Sua chave PIX para caso queira disponibilizar pagamento direto com aprovação manual.</p>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <button
+                    type="submit"
+                    disabled={savingPayment}
+                    style={{ 
+                      backgroundColor: primaryColor,
+                      boxShadow: `0 0 15px rgba(${primaryRGB}, 0.25)`
+                    }}
+                    className="text-slate-950 font-extrabold py-3 px-10 rounded-xl text-xs flex items-center gap-2 hover:scale-102 active:scale-98 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-slate-950" />
+                    {savingPayment ? "Salvando Integração..." : "Salvar Configurações Bancárias"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Webhook Details & Gateway Instructions */}
+              <div className="bg-[#050914] border border-slate-850 rounded-2xl p-5 space-y-4">
+                <h4 className="text-sm font-extrabold text-cyan-400 uppercase tracking-wider flex items-center gap-2 pb-2 border-b border-slate-800">
+                  <Settings className="w-4 h-4 text-cyan-400" />
+                  Instruções para Configuração do Webhook
+                </h4>
+
+                {/* URL de Webhook Box */}
+                <div className="bg-[#0a0f1c] border border-slate-800 rounded-xl p-4 space-y-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">URL de Notificação Webhook Live (Produção):</span>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      readOnly
+                      value={typeof window !== "undefined" ? window.location.origin + "/api/webhooks/payment" : "https://seusite.com/api/webhooks/payment"}
+                      className="flex-1 bg-black/40 border border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-350 font-mono outline-none select-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = typeof window !== "undefined" ? window.location.origin + "/api/webhooks/payment" : "https://seusite.com/api/webhooks/payment";
+                        navigator.clipboard.writeText(url);
+                        toast.success("URL copiada!");
+                      }}
+                      className="bg-slate-900 border border-slate-800 hover:bg-slate-800 p-2 rounded-lg text-slate-400 hover:text-white transition-colors"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dynamic Instructions Card */}
+                {paymentGateway === "SIMULATOR" && (
+                  <div className="space-y-3 text-xs leading-relaxed text-slate-400">
+                    <div className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 p-3 rounded-lg font-bold">
+                      ℹ️ Modo Simulador Ativo
+                    </div>
+                    <p>O modo simulador permite realizar contratações fictícias diretamente na Landing Page sem gastar dinheiro real e sem precisar configurar chaves bancárias.</p>
+                    <p>Ao fechar um plano, um painel PIX e Cartão simulado surgirá. Clicando em **"Simular Confirmação"**, o sistema dispara uma notificação simulada idêntica à que os gateways de pagamento reais enviam.</p>
+                    <p>Utilize este modo para demonstrar a velocidade de ativação do seu SaaS para parceiros ou investidores!</p>
+                  </div>
+                )}
+
+                {paymentGateway === "ASAAS" && (
+                  <div className="space-y-3 text-xs leading-relaxed text-slate-400">
+                    <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 p-3 rounded-lg font-bold">
+                      🚀 Configurando API do Asaas
+                    </div>
+                    <ol className="list-decimal pl-4 space-y-2">
+                      <li>Acesse sua conta no painel do **Asaas** (ou Sandbox de testes).</li>
+                      <li>Vá em **Minha Conta** &gt; **Integrações** &gt; **Gerar Chave de API**.</li>
+                      <li>Copie a chave gerada e cole no campo **Chave da API** ao lado.</li>
+                      <li>Navegue até a seção de **Webhooks** no Asaas, ative a fila de webhooks para cobranças e configure a URL de Notificação copiada acima.</li>
+                      <li>Marque o envio de eventos para `PAYMENT_RECEIVED` (Pagamento Confirmado).</li>
+                      <li>Copie o token gerado pelo Asaas para validação e cole no campo **Webhook Secret** ao lado.</li>
+                    </ol>
+                  </div>
+                )}
+
+                {paymentGateway === "MERCADO_PAGO" && (
+                  <div className="space-y-3 text-xs leading-relaxed text-slate-400">
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg font-bold">
+                      💳 Configurando Mercado Pago (Pix/Cartão/Boleto)
+                    </div>
+                    <ol className="list-decimal pl-4 space-y-2">
+                      <li>Acesse o portal do **Mercado Pago Developers** e selecione suas credenciais de produção.</li>
+                      <li>Copie o seu **Access Token (Produção)** e cole no campo **Chave da API** ao lado.</li>
+                      <li>Acesse a aba **Webhooks / Notificações de IPN**.</li>
+                      <li>Adicione a URL do Webhook listada acima.</li>
+                      <li>Selecione os eventos de **Pagamentos (payment)** e clique em salvar.</li>
+                      <li>O Mercado Pago gerará uma assinatura secreta (`Secret Key`) para você validar os dados. Insira essa chave no campo **Webhook Secret** ao lado para blindar a API.</li>
+                    </ol>
+                  </div>
+                )}
+
+                {paymentGateway === "STRIPE" && (
+                  <div className="space-y-3 text-xs leading-relaxed text-slate-400">
+                    <div className="bg-purple-500/10 border border-purple-500/20 text-purple-400 p-3 rounded-lg font-bold">
+                      🌍 Configurando Stripe (Integração Global)
+                    </div>
+                    <ol className="list-decimal pl-4 space-y-2">
+                      <li>Acesse a aba **Developers** &gt; **API Keys** no dashboard da **Stripe**.</li>
+                      <li>Copie a **Secret Key** (`sk_live_...` ou `sk_test_...`) e cole no campo **Chave da API** ao lado.</li>
+                      <li>Vá para a seção **Webhooks** e clique em **Add Endpoint**.</li>
+                      <li>Cole a URL de Webhook copiada no topo desta caixa.</li>
+                      <li>Selecione o evento `checkout.session.completed` ou `payment_intent.succeeded` e salve.</li>
+                      <li>Copie a **Signing Secret** (`whsec_...`) gerada para este webhook e cole no campo **Webhook Secret** ao lado para validar as requisições.</li>
+                    </ol>
+                  </div>
+                )}
+
+              </div>
             </div>
           </form>
         </div>

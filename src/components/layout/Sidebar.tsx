@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { 
   LayoutDashboard, Users, Package, ShoppingCart, 
-  DollarSign, Inbox, Settings, Shield, Building, Coins 
+  DollarSign, Inbox, Settings, Shield, Building, Coins, CreditCard
 } from "lucide-react";
 
 interface SidebarProps {
@@ -33,6 +33,7 @@ function SidebarContent({ role }: SidebarProps) {
     { href: "/mestre/empresas?tab=empresas", tabId: "empresas", label: "Clientes & Licenças", icon: Building, color: "text-cyan-400", bgHover: "hover:bg-cyan-500/10" },
     { href: "/mestre/empresas?tab=solicitacoes", tabId: "solicitacoes", label: "Solicitações de Adesão", icon: Coins, color: "text-emerald-400", bgHover: "hover:bg-emerald-500/10" },
     { href: "/mestre/empresas?tab=config", tabId: "config", label: "Customização SaaS", icon: Settings, color: "text-blue-400", bgHover: "hover:bg-blue-500/10" },
+    { href: "/mestre/empresas?tab=pagamentos", tabId: "pagamentos", label: "Integração Bancária", icon: CreditCard, color: "text-cyan-400", bgHover: "hover:bg-cyan-500/10" },
   ];
 
   const links = isMestre ? adminLinks : normalLinks;

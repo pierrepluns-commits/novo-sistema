@@ -65,7 +65,7 @@ export default async function RootLayout({
         
         {session && isAppRoute ? (
           <div className="flex h-screen bg-[#060b14] text-slate-200 overflow-hidden">
-            <Sidebar />
+            <Sidebar role={session.role} />
             <div className="flex-1 flex flex-col min-w-0 relative">
               <Header 
                 userName={session.name as string} 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -31,10 +31,16 @@ export default async function MasterDashboard() {
   const systemConfig = await getSystemConfig();
 
   return (
-    <MestreDashboardClient 
-      initialCompanies={companies}
-      initialRequests={requests}
-      initialConfig={systemConfig}
-    />
+    <Suspense fallback={
+      <div className="max-w-6xl mx-auto space-y-6 p-8 animate-pulse text-center text-slate-450 font-bold uppercase tracking-wider text-sm">
+        Carregando Central do Mestre...
+      </div>
+    }>
+      <MestreDashboardClient 
+        initialCompanies={companies}
+        initialRequests={requests}
+        initialConfig={systemConfig}
+      />
+    </Suspense>
   );
 }

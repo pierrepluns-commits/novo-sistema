@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Shield, Building, CheckCircle2, Clock, Settings, User, 
-  Copy, Check, CreditCard, Plus, Trash, Eye, Edit2, Save, Coins, X
+  Copy, Check, CreditCard, Plus, Trash, Eye, Edit2, Save, Coins, X,
+  Calendar, DollarSign, History, Mail, Send, Smartphone, ExternalLink, FileText
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { useSearchParams, useRouter } from "next/navigation";
 import { 
   toggleRequestPaymentStatus, 
   approveLicenseRequest, 
@@ -25,6 +27,10 @@ export function MestreDashboardClient({
   initialRequests, 
   initialConfig 
 }: MestreDashboardClientProps) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const queryTab = searchParams ? searchParams.get("tab") : null;
   const [activeTab, setActiveTab] = useState<"empresas" | "solicitacoes" | "config">("empresas");
   const [requests, setRequests] = useState(initialRequests);
   const [companies, setCompanies] = useState(initialCompanies);
@@ -32,8 +38,8 @@ export function MestreDashboardClient({
   
   // App Config States
   const [appName, setAppName] = useState(initialConfig?.appName || "Lumus ERP");
-  const [primaryColor, setPrimaryColor] = useState(initialConfig?.primaryColor || "#3b82f6");
-  const [secondaryColor, setSecondaryColor] = useState(initialConfig?.secondaryColor || "#06b6d4");
+  const [primaryColor, setPrimaryColor] = useState(initialConfig?.primaryColor || "#00f3ff");
+  const [secondaryColor, setSecondaryColor] = useState(initialConfig?.secondaryColor || "#0055ff");
   const [plans, setPlans] = useState<any[]>(() => {
     try {
       return JSON.parse(initialConfig?.plansConfig || "[]");
@@ -41,6 +47,18 @@ export function MestreDashboardClient({
       return [];
     }
   });
+
+  // Sync tab with search parameters
+  useEffect(() => {
+    if (queryTab === "empresas" || queryTab === "solicitacoes" || queryTab === "config") {
+      setActiveTab(queryTab);
+    }
+  }, [queryTab]);
+
+  const handleTabChange = (tab: "empresas" | "solicitacoes" | "config") => {
+    setActiveTab(tab);
+    router.push(`/mestre/empresas?tab=${tab}`);
+  };
 
   // Approval Modal States
   const [approvalModalRequest, setApprovalModalRequest] = useState<any | null>(null);
@@ -61,6 +79,27 @@ export function MestreDashboardClient({
   const [editStatus, setEditStatus] = useState<string>("ACTIVE");
   const [editExpiresAtStr, setEditExpiresAtStr] = useState<string>("");
   const [updatingLicense, setUpdatingLicense] = useState(false);
+
+  // Histórico & Central de Cobranças Modal States
+  const [selectedCompanyHistory, setSelectedCompanyHistory] = useState<any | null>(null);
+  const [billingType, setBillingType] = useState<"email" | "whatsapp">("email");
+  const [billingPhone, setBillingPhone] = useState("");
+  const [billingSubject, setBillingSubject] = useState("");
+  const [billingMessage, setBillingMessage] = useState("");
+  const [sendingBilling, setSendingBilling] = useState(false);
+  
+  // Local Audit Logs for simulation to feel alive!
+  const [customAuditLogs, setCustomAuditLogs] = useState<Record<string, Array<{ id: string; type: string; desc: string; date: string }>>>({});
+
+  // Dynamic colors configuration
+  const hexToRgb = (hex: string) => {
+    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+    const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : "0, 243, 255";
+  };
+
+  const primaryRGB = hexToRgb(primaryColor);
 
   const handleOpenEditLicense = (company: any) => {
     setEditLicenseCompany(company);
@@ -109,12 +148,132 @@ export function MestreDashboardClient({
         return c;
       }));
 
+      // Add local audit log
+      addAuditLog(editLicenseCompany.id, "LICENSE_UPDATE", `Licença alterada para ${editPlan} (${editMaxUnits} lojas), Status: ${editStatus}`);
+
       setEditLicenseCompany(null);
     } catch (err: any) {
       toast.error("Falha ao atualizar: " + err.message);
     } finally {
       setUpdatingLicense(false);
     }
+  };
+
+  // Helper to add local audit logs dynamically
+  const addAuditLog = (companyId: string, type: string, desc: string) => {
+    const newLog = {
+      id: Math.random().toString(),
+      type,
+      desc,
+      date: new Date().toLocaleString("pt-BR")
+    };
+    setCustomAuditLogs(prev => ({
+      ...prev,
+      [companyId]: [newLog, ...(prev[companyId] || [])]
+    }));
+  };
+
+  // Initialize and Open Audit History / Billing Modal
+  const handleOpenHistory = (company: any) => {
+    setSelectedCompanyHistory(company);
+    setBillingType("email");
+
+    // Populate WhatsApp phone number if present or request is found
+    const matchingReq = requests.find(r => r.email === company.users[0]?.email);
+    setBillingPhone(matchingReq?.phone || "5511999999999");
+
+    // Dynamic price calculation
+    const planInfo = plans.find(p => p.id === company.license?.plan) || {
+      price: company.license?.plan === "BASIC" ? 99.90 : company.license?.plan === "PRO" ? 249.90 : 499.90
+    };
+
+    // Pre-fill email contents
+    const subject = `[Faturamento] Mensalidade Lumus ERP - ${company.name}`;
+    const message = `Olá, ${company.users[0]?.name || "Gestor(a)"}!\n\nIdentificamos o fechamento do ciclo de cobrança para a sua empresa ${company.name}.\n\nDetalhamento do Faturamento:\n- Plano: ${company.license?.plan || "BASIC"} (${company.license?.maxUnits || 1} Lojas)\n- Valor Mensal: R$ ${planInfo.price.toFixed(2)}\n- Vencimento: ${company.license?.expiresAt ? new Date(company.license.expiresAt).toLocaleDateString("pt-BR") : "Vitalícia"}\n\nPara efetuar o pagamento da mensalidade e manter o seu acesso liberado, gere o boleto bancário / PIX clicando no link abaixo:\nhttps://pagamentos.lumuserp.com/cobranca/boleto-${company.id.split("-")[0]}\n\nQualquer dúvida, conte com a nossa equipe de suporte!\n\nAtenciosamente,\nDiretoria Administrativa ${appName}`;
+    
+    setBillingSubject(subject);
+    setBillingMessage(message);
+
+    // If company does not have audit logs initialized yet, generate dummy initial timeline
+    if (!customAuditLogs[company.id]) {
+      const createdDate = new Date(company.createdAt).toLocaleString("pt-BR");
+      const updatedDate = new Date(company.license?.updatedAt || company.createdAt).toLocaleString("pt-BR");
+      
+      const initialLogs = [
+        {
+          id: "1",
+          type: "LICENSE_ACTIVE",
+          desc: `Licença ativa vinculada ao plano ${company.license?.plan || "BASIC"} (${company.license?.maxUnits || 1} Lojas)`,
+          date: updatedDate
+        },
+        {
+          id: "2",
+          type: "ADMIN_REGISTER",
+          desc: `Administrador principal cadastrado (${company.users[0]?.name || "Sem Nome"} - ${company.users[0]?.email})`,
+          date: createdDate
+        },
+        {
+          id: "3",
+          type: "COMPANY_CREATED",
+          desc: `Empresa ${company.name} cadastrada com sucesso no ecossistema SaaS.`,
+          date: createdDate
+        }
+      ];
+      setCustomAuditLogs(prev => ({
+        ...prev,
+        [company.id]: initialLogs
+      }));
+    }
+  };
+
+  // Simulate Email Billing trigger
+  const handleSendEmailBilling = async () => {
+    setSendingBilling(true);
+    
+    // Simulate server side delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    console.log(`\n==================================================`);
+    console.log(`[DISPARO DE E-MAIL DE COBRANÇA DE MESTRE]`);
+    console.log(`Para: ${selectedCompanyHistory.users[0]?.email}`);
+    console.log(`Assunto: ${billingSubject}`);
+    console.log(`Conteúdo:\n${billingMessage}`);
+    console.log(`==================================================\n`);
+
+    addAuditLog(
+      selectedCompanyHistory.id, 
+      "EMAIL_SENT", 
+      `E-mail de cobrança enviado para o e-mail: ${selectedCompanyHistory.users[0]?.email}`
+    );
+
+    toast.success("E-mail de cobrança disparado com sucesso!");
+    setSendingBilling(false);
+  };
+
+  // Send Whatsapp message using wa.me browser redirect
+  const handleSendWhatsappBilling = () => {
+    // Dynamic price calculation
+    const planInfo = plans.find(p => p.id === selectedCompanyHistory.license?.plan) || {
+      price: selectedCompanyHistory.license?.plan === "BASIC" ? 99.90 : selectedCompanyHistory.license?.plan === "PRO" ? 249.90 : 499.90
+    };
+
+    const cleanPhone = billingPhone.replace(/\D/g, "");
+    
+    // Prepare elegant Whatsapp template
+    const text = `*${appName} - AVISO DE FATURAMENTO*\n\nOlá, *${selectedCompanyHistory.users[0]?.name || "Gestor"}*!\n\nInformamos que a fatura da licença da sua empresa *${selectedCompanyHistory.name}* está disponível:\n\n🔹 *Plano:* ${selectedCompanyHistory.license?.plan} (${selectedCompanyHistory.license?.maxUnits} Unidades)\n🔹 *Mensalidade:* R$ ${planInfo.price.toFixed(2)}\n🔹 *Status:* Licença Ativa\n\n👉 Para efetuar o pagamento da fatura e evitar suspensão, clique no link do seu *Boleto / PIX*:\nhttps://pagamentos.lumuserp.com/cobranca/boleto-${selectedCompanyHistory.id.split("-")[0]}\n\nQualquer dúvida, responda a esta mensagem. Obrigado!`;
+    
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+    
+    // Open in new window/tab
+    window.open(whatsappUrl, "_blank");
+
+    addAuditLog(
+      selectedCompanyHistory.id, 
+      "WHATSAPP_SENT", 
+      `Mensagem de cobrança com link de boleto enviada via WhatsApp para o número: ${cleanPhone}`
+    );
+
+    toast.success("Redirecionando para o WhatsApp Web...");
   };
 
   // Toggle payment status action
@@ -226,46 +385,65 @@ export function MestreDashboardClient({
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Title Header */}
+      
+      {/* Title Header - Styled in Cyber Ciano */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-white flex items-center gap-3">
-            <Shield className="w-8 h-8 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-            Painel do Dono (Super Admin)
+            <Shield 
+              style={{ color: primaryColor, filter: `drop-shadow(0 0 10px rgba(${primaryRGB}, 0.5))` }} 
+              className="w-8 h-8" 
+            />
+            Painel do Mestre (Super Admin)
           </h1>
-          <p className="text-slate-400 mt-1">Controle de licenças, faturamento e estilo da plataforma</p>
+          <p className="text-slate-400 mt-1">Gestão de licenças contratuais, cobranças ativas e identidade do SaaS</p>
         </div>
         <Link href="/mestre/empresas/novo">
-          <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(220,38,38,0.3)] hover:scale-102">
+          <button 
+            style={{ 
+              backgroundColor: primaryColor,
+              boxShadow: `0 0 15px rgba(${primaryRGB}, 0.3)`
+            }}
+            className="text-slate-900 font-extrabold py-2.5 px-5 rounded-xl flex items-center gap-2 transition-all hover:scale-102 hover:brightness-110"
+          >
             <Building className="w-5 h-5" />
             Criar Empresa & Licença Manual
           </button>
         </Link>
       </div>
 
-      {/* Modern Tabs */}
+      {/* Modern Tabs - Cyber style */}
       <div className="flex border-b border-slate-800/80 gap-2">
         {[
-          { id: "empresas", label: "Empresas Ativas", icon: Building },
+          { id: "empresas", label: "Empresas & Clientes", icon: Building },
           { id: "solicitacoes", label: "Solicitações", count: requests.filter(r => r.status === "PENDING").length, icon: Coins },
-          { id: "config", label: "Customização Landing & Planos", icon: Settings }
+          { id: "config", label: "Customização SaaS & Planos", icon: Settings }
         ].map(t => {
           const Icon = t.icon;
           const isActive = activeTab === t.id;
           return (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id as any)}
+              onClick={() => handleTabChange(t.id as any)}
               className={`flex items-center gap-2 px-5 py-3.5 text-sm font-bold border-b-2 transition-all relative ${
                 isActive 
-                  ? "border-red-500 text-white bg-slate-800/10 font-black" 
+                  ? "text-white bg-slate-800/10 font-black" 
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
+              style={{
+                borderBottomColor: isActive ? primaryColor : "transparent"
+              }}
             >
-              <Icon className={`w-4 h-4 ${isActive ? "text-red-500" : "text-slate-500"}`} />
+              <Icon 
+                className="w-4 h-4" 
+                style={{ color: isActive ? primaryColor : "#64748b" }}
+              />
               {t.label}
               {t.count !== undefined && t.count > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-black rounded-full px-2 py-0.5 ml-1">
+                <span 
+                  style={{ backgroundColor: primaryColor }}
+                  className="text-slate-950 text-[10px] font-black rounded-full px-2 py-0.5 ml-1"
+                >
                   {t.count}
                 </span>
               )}
@@ -276,61 +454,81 @@ export function MestreDashboardClient({
 
       {/* Tab 1: Active Companies */}
       {activeTab === "empresas" && (
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-300">
+        <div className="bg-[#0a0f1c]/80 backdrop-blur-md border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-300">
           <table className="w-full text-left">
-            <thead className="bg-[#1e293b] text-slate-300 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
+            <thead className="bg-[#101726] text-slate-350 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
               <tr>
                 <th className="p-4 font-semibold">Empresa</th>
-                <th className="p-4 font-semibold">Documento</th>
-                <th className="p-4 font-semibold">Admin (Login)</th>
+                <th className="p-4 font-semibold">CNPJ/Documento</th>
+                <th className="p-4 font-semibold">Administrador principal</th>
                 <th className="p-4 font-semibold">Plano</th>
-                <th className="p-4 font-semibold">Unidades Permitidas</th>
-                <th className="p-4 font-semibold">Status Licença</th>
+                <th className="p-4 font-semibold">Limite Filiais</th>
+                <th className="p-4 font-semibold">Data do Pagamento</th>
                 <th className="p-4 font-semibold">Vencimento</th>
-                <th className="p-4 font-semibold text-right">Ações</th>
+                <th className="p-4 font-semibold text-right">Ações de Controle</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
               {companies.map(c => {
                 const admin = c.users[0];
                 const isExpired = c.license?.expiresAt && new Date(c.license.expiresAt) < new Date();
+                
+                // Last payment calculation (represented by license updatedAt)
+                const paymentDate = c.license?.updatedAt 
+                  ? new Date(c.license.updatedAt).toLocaleDateString("pt-BR") 
+                  : new Date(c.createdAt).toLocaleDateString("pt-BR");
+
                 return (
                   <tr key={c.id} className="hover:bg-slate-800/20 transition-colors">
                     <td className="p-4">
                       <p className="font-bold text-white text-sm">{c.name}</p>
-                      <p className="text-[10px] text-slate-500">ID: {c.id.split("-")[0]}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">ID: {c.id.split("-")[0]}</p>
                     </td>
                     <td className="p-4 text-slate-400 text-sm font-mono">{c.document || "-"}</td>
                     <td className="p-4">
                       <p className="text-sm text-slate-300 font-bold">{admin?.name || "Sem Admin"}</p>
-                      <p className="text-xs text-blue-400 font-mono">{admin?.email}</p>
+                      <p className="text-xs text-cyan-400 font-mono">{admin?.email}</p>
                     </td>
                     <td className="p-4">
-                      <span className="bg-slate-800 text-slate-200 border border-slate-700 text-xs px-2 py-0.5 rounded font-mono font-bold">
+                      <span className="bg-slate-900 text-cyan-400 border border-slate-800 text-xs px-2 py-0.5 rounded font-mono font-bold uppercase">
                         {c.license?.plan}
                       </span>
                     </td>
                     <td className="p-4 text-slate-300 font-mono text-sm">
-                      {c.license?.maxUnits || 1} {c.license?.maxUnits === 1 ? "unidade" : "unidades"}
+                      {c.license?.maxUnits || 1} {c.license?.maxUnits === 1 ? "loja" : "lojas"}
                     </td>
-                    <td className="p-4">
-                      {c.license?.status === "ACTIVE" && !isExpired ? (
-                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider">Ativa</span>
-                      ) : (
-                        <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider">Inativa/Vencida</span>
-                      )}
+                    <td className="p-4 text-slate-300 text-sm">
+                      <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        {paymentDate}
+                      </span>
                     </td>
                     <td className="p-4 text-slate-400 text-sm">
-                      {c.license?.expiresAt ? new Date(c.license.expiresAt).toLocaleDateString("pt-BR") : "Vitalícia"}
+                      {c.license?.expiresAt ? (
+                        <span className={isExpired ? "text-red-400 font-bold" : ""}>
+                          {new Date(c.license.expiresAt).toLocaleDateString("pt-BR")}
+                        </span>
+                      ) : (
+                        <span className="text-cyan-400 font-semibold uppercase text-xs">Vitalícia</span>
+                      )}
                     </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => handleOpenEditLicense(c)}
-                        className="bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 ml-auto cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-cyan-400" />
-                        Editar Licença
-                      </button>
+                    <td className="p-4">
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => handleOpenHistory(c)}
+                          className="bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <History className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                          Histórico & Cobrança
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditLicense(c)}
+                          className="bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-emerald-400" />
+                          Editar Licença
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -347,9 +545,9 @@ export function MestreDashboardClient({
 
       {/* Tab 2: Incoming Acquisition Requests */}
       {activeTab === "solicitacoes" && (
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-300">
+        <div className="bg-[#0a0f1c]/80 backdrop-blur-md border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-300">
           <table className="w-full text-left">
-            <thead className="bg-[#1e293b] text-slate-300 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
+            <thead className="bg-[#101726] text-slate-350 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
               <tr>
                 <th className="p-4 font-semibold">Cliente / Empresa</th>
                 <th className="p-4 font-semibold">E-mail / Telefone</th>
@@ -376,7 +574,7 @@ export function MestreDashboardClient({
                       <p className="text-xs text-slate-500">{r.phone || "Sem Telefone"}</p>
                     </td>
                     <td className="p-4">
-                      <span className="bg-red-500/10 text-red-400 border border-red-500/20 text-xs px-2 py-0.5 rounded font-mono font-bold">
+                      <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs px-2 py-0.5 rounded font-mono font-bold uppercase">
                         {r.plan}
                       </span>
                     </td>
@@ -411,7 +609,7 @@ export function MestreDashboardClient({
                       {r.status === "PENDING" ? (
                         <button
                           onClick={() => handleOpenApproval(r)}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-1.5 px-3 rounded-lg shadow-md transition-colors"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-1.5 px-3 rounded-lg shadow-md transition-colors cursor-pointer"
                         >
                           Autorizar Licença
                         </button>
@@ -434,9 +632,9 @@ export function MestreDashboardClient({
 
       {/* Tab 3: Customize Landing Color / App Settings */}
       {activeTab === "config" && (
-        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl animate-in fade-in duration-300">
+        <div className="bg-[#0a0f1c]/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-xl animate-in fade-in duration-300">
           <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2 pb-2 border-b border-slate-800">
-            <Settings className="w-5 h-5 text-red-500" />
+            <Settings className="w-5 h-5 text-cyan-400" />
             Configuração Visual e Planos do SaaS
           </h3>
 
@@ -450,7 +648,7 @@ export function MestreDashboardClient({
                   required
                   value={appName}
                   onChange={(e) => setAppName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-[#0a0f1c] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500"
+                  className="w-full px-3.5 py-2.5 text-sm bg-[#050914] border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
@@ -469,7 +667,7 @@ export function MestreDashboardClient({
                     required
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="flex-1 px-3.5 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-red-500"
+                    className="flex-1 px-3.5 py-2 text-sm bg-[#050914] border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
               </div>
@@ -489,14 +687,14 @@ export function MestreDashboardClient({
                     required
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
-                    className="flex-1 px-3.5 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-red-500"
+                    className="flex-1 px-3.5 py-2 text-sm bg-[#050914] border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
               </div>
             </div>
 
             {/* Plans Management Section */}
-            <div className="space-y-4 pt-4 border-t border-slate-800">
+            <div className="space-y-4 pt-4 border-t border-slate-850">
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
                 <Coins className="w-4 h-4 text-amber-400" />
                 Precificação dos Planos (Exibidos na Landing Page)
@@ -504,10 +702,10 @@ export function MestreDashboardClient({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {plans.map((p: any) => (
-                  <div key={p.id} className="bg-slate-800/20 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <div key={p.id} className="bg-slate-900/40 p-5 rounded-2xl border border-slate-850 space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="font-extrabold text-white text-sm uppercase">{p.name}</span>
-                      <span className="text-[10px] bg-red-500/10 text-red-400 font-bold border border-red-500/20 px-2.5 py-0.5 rounded-full">{p.id}</span>
+                      <span className="text-[10px] bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/20 px-2.5 py-0.5 rounded-full">{p.id}</span>
                     </div>
 
                     <div className="space-y-3">
@@ -520,7 +718,7 @@ export function MestreDashboardClient({
                             step="0.01"
                             value={p.price}
                             onChange={(e) => handlePlanPriceChange(p.id, "price", parseFloat(e.target.value) || 0)}
-                            className="w-full pl-8 pr-2 py-2 text-xs bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold"
+                            className="w-full pl-8 pr-2 py-2 text-xs bg-[#050914] border border-slate-800 rounded-lg text-white font-bold"
                           />
                         </div>
                       </div>
@@ -531,7 +729,7 @@ export function MestreDashboardClient({
                           type="number"
                           value={p.maxUnits}
                           onChange={(e) => handlePlanPriceChange(p.id, "maxUnits", parseInt(e.target.value, 10) || 1)}
-                          className="w-full px-2.5 py-2 text-xs bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-mono"
+                          className="w-full px-2.5 py-2 text-xs bg-[#050914] border border-slate-800 rounded-lg text-white font-mono"
                         />
                       </div>
 
@@ -544,7 +742,7 @@ export function MestreDashboardClient({
                             const val = e.target.value;
                             setPlans(prev => prev.map((item: any) => item.id === p.id ? { ...item, desc: val } : item));
                           }}
-                          className="w-full p-2 text-xs bg-[#0a0f1c] border border-slate-700 rounded-lg text-slate-300"
+                          className="w-full p-2 text-xs bg-[#050914] border border-slate-800 rounded-lg text-slate-350"
                         />
                       </div>
                     </div>
@@ -553,13 +751,17 @@ export function MestreDashboardClient({
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-slate-800/80">
+            <div className="flex justify-end pt-4 border-t border-slate-850">
               <button
                 type="submit"
                 disabled={savingConfig}
-                className="bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-8 rounded-xl text-sm flex items-center gap-2 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                style={{ 
+                  backgroundColor: primaryColor,
+                  boxShadow: `0 0 15px rgba(${primaryRGB}, 0.2)`
+                }}
+                className="text-slate-950 font-extrabold py-2.5 px-8 rounded-xl text-sm flex items-center gap-2 hover:scale-102 transition-all cursor-pointer"
               >
-                <Save className="w-4 h-4" />
+                <Save className="w-4 h-4 text-slate-950" />
                 {savingConfig ? "Salvando..." : "Salvar Alterações Globais"}
               </button>
             </div>
@@ -570,7 +772,7 @@ export function MestreDashboardClient({
       {/* ----------------- APPROVE DIALOG MODAL ----------------- */}
       {approvalModalRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0a0f1c] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
             <button
               onClick={() => setApprovalModalRequest(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
@@ -595,7 +797,7 @@ export function MestreDashboardClient({
                   min={1}
                   value={customMaxUnits}
                   onChange={(e) => setCustomMaxUnits(parseInt(e.target.value, 10) || 1)}
-                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:border-red-500"
+                  className="w-full px-3 py-2 text-sm bg-[#050914] border border-slate-800 rounded-lg text-white font-bold focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">O cliente poderá cadastrar filiais até bater esta cota.</p>
               </div>
@@ -606,24 +808,24 @@ export function MestreDashboardClient({
                   type="date"
                   value={expiresAtStr}
                   onChange={(e) => setExpiresAtStr(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white focus:outline-none focus:border-red-500 font-bold"
+                  className="w-full px-3 py-2 text-sm bg-[#050914] border border-slate-800 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 font-bold"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">Selecione uma data limite ou deixe em branco para licença vitalícia.</p>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800/80">
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-850">
                 <button
                   type="button"
                   onClick={() => setApprovalModalRequest(null)}
                   disabled={approving}
-                  className="px-4 py-2 text-xs font-semibold bg-slate-850 hover:bg-slate-800 text-white rounded-lg border border-slate-700"
+                  className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-850 text-white rounded-lg border border-slate-800 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={approving}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2 px-6 rounded-lg text-xs flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2 px-6 rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {approving ? "Processando..." : "Confirmar & Liberar Acesso"}
                 </button>
@@ -636,7 +838,7 @@ export function MestreDashboardClient({
       {/* ----------------- CREDENTIALS RESULT MODAL ----------------- */}
       {credentialsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0f172a] border-2 border-emerald-500/50 rounded-2xl w-full max-w-md shadow-[0_0_50px_rgba(16,185,129,0.2)] p-6 relative text-center">
+          <div className="bg-[#0a0f1c] border-2 border-emerald-500/50 rounded-2xl w-full max-w-md shadow-[0_0_50px_rgba(16,185,129,0.2)] p-6 relative text-center">
             <div className="w-14 h-14 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8 text-emerald-400" />
             </div>
@@ -644,7 +846,7 @@ export function MestreDashboardClient({
             <h3 className="text-xl font-black text-white mb-1">Licença Ativada com Sucesso!</h3>
             <p className="text-xs text-slate-400 mb-6">Copie e envie as credenciais iniciais para o cliente acessar o ERP.</p>
 
-            <div className="bg-[#0a0f1c] border border-slate-800 rounded-xl p-4 text-left space-y-3 mb-6 font-mono text-xs relative overflow-hidden">
+            <div className="bg-[#050914] border border-slate-800 rounded-xl p-4 text-left space-y-3 mb-6 font-mono text-xs relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none"></div>
               <div>
                 <span className="text-slate-500 block text-[10px] font-bold uppercase">Painel de Login:</span>
@@ -670,7 +872,7 @@ export function MestreDashboardClient({
               </button>
               <button
                 onClick={() => setCredentialsModal(null)}
-                className="bg-slate-850 hover:bg-slate-800 text-slate-300 font-bold py-3 px-6 rounded-xl text-xs border border-slate-700"
+                className="bg-slate-900 hover:bg-slate-850 text-slate-350 font-bold py-3 px-6 rounded-xl text-xs border border-slate-800"
               >
                 Fechar
               </button>
@@ -682,7 +884,7 @@ export function MestreDashboardClient({
       {/* ----------------- EDIT LICENSE DIALOG MODAL ----------------- */}
       {editLicenseCompany && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
+          <div className="bg-[#0a0f1c] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
             <button
               onClick={() => setEditLicenseCompany(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
@@ -711,7 +913,7 @@ export function MestreDashboardClient({
                     else if (val === "PRO") setEditMaxUnits(5);
                     else if (val === "ENTERPRISE") setEditMaxUnits(99);
                   }}
-                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:border-red-500 cursor-pointer"
+                  className="w-full px-3 py-2 text-sm bg-[#050914] border border-slate-800 rounded-lg text-white font-bold focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer"
                 >
                   <option value="BASIC">Basic (PDV e Estoque) — 1 Loja</option>
                   <option value="PRO">Pro (Multifilial) — Até 5 Lojas</option>
@@ -727,7 +929,7 @@ export function MestreDashboardClient({
                   min={1}
                   value={editMaxUnits}
                   onChange={(e) => setEditMaxUnits(parseInt(e.target.value, 10) || 1)}
-                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:border-red-500"
+                  className="w-full px-3 py-2 text-sm bg-[#050914] border border-slate-800 rounded-lg text-white font-bold focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">O cliente poderá cadastrar filiais até atingir esta cota.</p>
               </div>
@@ -737,7 +939,7 @@ export function MestreDashboardClient({
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:border-red-500 cursor-pointer"
+                  className="w-full px-3 py-2 text-sm bg-[#050914] border border-slate-800 rounded-lg text-white font-bold focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 cursor-pointer"
                 >
                   <option value="ACTIVE">ATIVO</option>
                   <option value="SUSPENDED">SUSPENSO</option>
@@ -751,17 +953,17 @@ export function MestreDashboardClient({
                   type="date"
                   value={editExpiresAtStr}
                   onChange={(e) => setEditExpiresAtStr(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white focus:outline-none focus:border-red-500 font-bold"
+                  className="w-full px-3 py-2 text-sm bg-[#050914] border border-slate-800 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 font-bold"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">Deixe em branco para licença vitalícia.</p>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800/80">
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-850">
                 <button
                   type="button"
                   onClick={() => setEditLicenseCompany(null)}
                   disabled={updatingLicense}
-                  className="px-4 py-2 text-xs font-semibold bg-slate-850 hover:bg-slate-800 text-white rounded-lg border border-slate-700 transition-colors"
+                  className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-850 text-white rounded-lg border border-slate-800 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -777,6 +979,263 @@ export function MestreDashboardClient({
           </div>
         </div>
       )}
+
+      {/* ----------------- DETALHES & HISTÓRICO & CENTRAL DE COBRANÇA MODAL ----------------- */}
+      {selectedCompanyHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0a0f1c] border border-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-6 md:p-8 relative overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-200">
+            
+            {/* Top glowing cyber border */}
+            <div 
+              style={{ background: `linear-gradient(to right, transparent, ${primaryColor}, transparent)` }}
+              className="absolute top-0 left-0 w-full h-[2px] opacity-75"
+            ></div>
+
+            <button
+              onClick={() => setSelectedCompanyHistory(null)}
+              className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* Header info */}
+            <div className="border-b border-slate-800/80 pb-6 mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <Building className="w-7 h-7 text-cyan-400 animate-pulse" />
+                <h3 className="text-2xl font-black text-white">{selectedCompanyHistory.name}</h3>
+                <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold uppercase">
+                  {selectedCompanyHistory.license?.plan || "BASIC"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">
+                Gestão Administrativa & Log de Auditoria do Cliente
+              </p>
+            </div>
+
+            {/* Main two-column dashboard */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* Left Column: Client information details */}
+              <div className="space-y-6">
+                <div className="bg-[#050914] border border-slate-850 rounded-2xl p-5 space-y-4">
+                  <h4 className="text-sm font-black text-white uppercase tracking-wider text-cyan-400 flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <FileText className="w-4 h-4" /> Informações Contratuais
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                    <div>
+                      <span className="text-slate-500 block font-sans">CNPJ/Documento:</span>
+                      <span className="text-slate-350 font-bold">{selectedCompanyHistory.document || "Não Informado"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block font-sans">Data de Cadastro:</span>
+                      <span className="text-slate-350">{new Date(selectedCompanyHistory.createdAt).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block font-sans">Administrador Principal:</span>
+                      <span className="text-slate-200 font-bold font-sans">{selectedCompanyHistory.users[0]?.name || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block font-sans">E-mail de Login:</span>
+                      <span className="text-cyan-400 break-all">{selectedCompanyHistory.users[0]?.email || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block font-sans">Cota Máxima de Lojas:</span>
+                      <span className="text-slate-200 font-bold">{selectedCompanyHistory.license?.maxUnits || 1} filiais</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block font-sans">Status da Licença:</span>
+                      {selectedCompanyHistory.license?.status === "ACTIVE" ? (
+                        <span className="text-emerald-400 font-bold uppercase">Ativo</span>
+                      ) : (
+                        <span className="text-red-400 font-bold uppercase">Inativo/Suspenso</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block font-sans">Último Faturamento:</span>
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        {selectedCompanyHistory.license?.updatedAt 
+                          ? new Date(selectedCompanyHistory.license.updatedAt).toLocaleDateString("pt-BR") 
+                          : new Date(selectedCompanyHistory.createdAt).toLocaleDateString("pt-BR")}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block font-sans">Data de Expiração:</span>
+                      <span className="text-slate-350 font-bold">
+                        {selectedCompanyHistory.license?.expiresAt 
+                          ? new Date(selectedCompanyHistory.license.expiresAt).toLocaleDateString("pt-BR") 
+                          : "Vitalícia / Recorrência"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Billing Panel Box */}
+                <div className="bg-[#050914] border border-slate-850 rounded-2xl p-5 space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h4 className="text-sm font-black text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" /> Central de Cobranças
+                    </h4>
+                    <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px] font-bold">
+                      <button
+                        onClick={() => setBillingType("email")}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${billingType === "email" ? "bg-cyan-500 text-slate-950 font-extrabold" : "text-slate-400 hover:text-white"}`}
+                      >
+                        E-MAIL
+                      </button>
+                      <button
+                        onClick={() => setBillingType("whatsapp")}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${billingType === "whatsapp" ? "bg-cyan-500 text-slate-950 font-extrabold" : "text-slate-400 hover:text-white"}`}
+                      >
+                        WHATSAPP
+                      </button>
+                    </div>
+                  </div>
+
+                  {billingType === "email" ? (
+                    <div className="space-y-3.5">
+                      <div className="text-[11px] text-slate-400">
+                        Prepara e envia um e-mail de faturamento formal contendo o resumo e o link seguro para geração do Boleto / PIX.
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Assunto da Notificação</label>
+                        <input
+                          type="text"
+                          value={billingSubject}
+                          onChange={(e) => setBillingSubject(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-[#0a0f1c] border border-slate-800 rounded-lg text-white font-bold focus:outline-none focus:border-cyan-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Mensagem de Faturamento</label>
+                        <textarea
+                          rows={6}
+                          value={billingMessage}
+                          onChange={(e) => setBillingMessage(e.target.value)}
+                          className="w-full p-3 text-xs bg-[#0a0f1c] border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-cyan-500 font-sans leading-relaxed"
+                        />
+                      </div>
+                      <button
+                        onClick={handleSendEmailBilling}
+                        disabled={sendingBilling}
+                        className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black uppercase tracking-wider text-[11px] rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:scale-[1.01] active:scale-98 cursor-pointer disabled:opacity-50"
+                      >
+                        <Mail className="w-4 h-4" />
+                        {sendingBilling ? "Disparando Mensagem..." : "Enviar Cobrança por E-mail"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="text-[11px] text-slate-400 leading-relaxed">
+                        Prepara uma notificação formatada para redes móveis e abre o **WhatsApp Web** direto no chat do cliente com a mensagem e o link do boleto prontos para envio.
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Número do WhatsApp (com DDD)</label>
+                        <div className="relative">
+                          <Smartphone className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Ex: 5511999999999"
+                            value={billingPhone}
+                            onChange={(e) => setBillingPhone(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 text-xs bg-[#0a0f1c] border border-slate-800 rounded-lg text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
+                          />
+                        </div>
+                        <p className="text-[9px] text-slate-500 mt-1">Dica: Inclua o código do país (55) seguido do DDD e número de celular.</p>
+                      </div>
+
+                      <div className="bg-[#0a0f1c]/50 p-4 border border-slate-850 rounded-xl space-y-3.5 text-xs">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block font-mono">Prévia da Mensagem (WhatsApp Web)</span>
+                        <div className="bg-[#050914] p-3 rounded-lg border border-slate-800/80 font-sans text-slate-300 leading-relaxed space-y-2 whitespace-pre-line border-dashed">
+                          <strong>{appName} - AVISO DE FATURAMENTO</strong>
+                          
+                          Olá, {selectedCompanyHistory.users[0]?.name || "Gestor"}!
+                          
+                          Informamos que a fatura da licença da sua empresa *{selectedCompanyHistory.name}* está disponível:
+                          
+                          🔹 *Plano:* {selectedCompanyHistory.license?.plan} ({selectedCompanyHistory.license?.maxUnits} Unidades)
+                          🔹 *Mensalidade:* R$ {(plans.find(p => p.id === selectedCompanyHistory.license?.plan)?.price || (selectedCompanyHistory.license?.plan === "BASIC" ? 99.90 : selectedCompanyHistory.license?.plan === "PRO" ? 249.90 : 499.90)).toFixed(2)}
+                          
+                          👉 Para efetuar o pagamento da fatura e evitar suspensão, clique no link do seu *Boleto / PIX*:
+                          <span className="text-cyan-400 break-all">https://pagamentos.lumuserp.com/cobranca/boleto-{selectedCompanyHistory.id.split("-")[0]}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleSendWhatsappBilling}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-wider text-[11px] rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)] hover:scale-[1.01] active:scale-98 cursor-pointer"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Disparar WhatsApp com Link de Boleto
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Customer audit events logs history */}
+              <div className="bg-[#050914] border border-slate-850 rounded-2xl p-5 flex flex-col min-h-[400px]">
+                <h4 className="text-sm font-black text-cyan-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2 mb-4">
+                  <History className="w-4 h-4 animate-spin-slow" /> Histórico de Auditoria & Cobranças
+                </h4>
+
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[480px] custom-scrollbar">
+                  {(customAuditLogs[selectedCompanyHistory.id] || []).map((log) => {
+                    const isEmail = log.type === "EMAIL_SENT";
+                    const isWhatsapp = log.type === "WHATSAPP_SENT";
+                    const isUpdate = log.type === "LICENSE_UPDATE";
+                    
+                    let iconColor = "bg-blue-500 text-white shadow-[0_0_8px_rgba(59,130,246,0.3)]";
+                    if (isEmail) iconColor = "bg-cyan-500 text-slate-950 shadow-[0_0_8px_rgba(6,182,212,0.4)]";
+                    else if (isWhatsapp) iconColor = "bg-emerald-500 text-white shadow-[0_0_8px_rgba(16,185,129,0.4)]";
+                    else if (isUpdate) iconColor = "bg-amber-500 text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.4)]";
+
+                    return (
+                      <div key={log.id} className="relative flex gap-3 text-xs animate-in slide-in-from-right-4 duration-300">
+                        {/* Bullet connection node */}
+                        <div className="flex flex-col items-center">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] z-10 uppercase ${iconColor}`}>
+                            {log.type.substring(0, 2)}
+                          </div>
+                          <div className="w-[1.5px] bg-slate-800 flex-1 min-h-[30px] mt-1"></div>
+                        </div>
+
+                        {/* Event text contents */}
+                        <div className="bg-[#0a0f1c]/70 border border-slate-850 rounded-xl p-3 flex-1 relative group hover:border-slate-800 transition-colors">
+                          <span className="text-[10px] text-slate-500 font-mono block mb-1">{log.date}</span>
+                          <p className="text-slate-200 font-semibold leading-relaxed">{log.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {(!customAuditLogs[selectedCompanyHistory.id] || customAuditLogs[selectedCompanyHistory.id].length === 0) && (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-500 py-16">
+                      <History className="w-10 h-10 text-slate-700 mb-2" />
+                      <p className="text-xs">Nenhum evento registrado ainda.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom action close button */}
+            <div className="border-t border-slate-800/80 pt-6 mt-8 flex justify-end">
+              <button
+                onClick={() => setSelectedCompanyHistory(null)}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md"
+              >
+                Concluir Visualização
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -8,7 +8,17 @@ import { useRouter } from "next/navigation";
 
 export default function NovaLicencaPage() {
   const [loading, setLoading] = useState(false);
+  const [plan, setPlan] = useState("BASIC");
+  const [maxUnits, setMaxUnits] = useState(1);
   const router = useRouter();
+
+  const handlePlanChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setPlan(val);
+    if (val === "BASIC") setMaxUnits(1);
+    else if (val === "PRO") setMaxUnits(5);
+    else if (val === "ENTERPRISE") setMaxUnits(99);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -47,18 +57,37 @@ export default function NovaLicencaPage() {
 
         <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl">
           <h2 className="text-xl font-bold text-white mb-4">Plano e Licenciamento</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-1">Plano Adquirido</label>
-              <select name="plan" required className="w-full px-3 py-2 border border-slate-700 rounded-md bg-[#0a0f1c] text-white focus:border-red-500 focus:outline-none">
+              <select 
+                name="plan" 
+                required 
+                value={plan}
+                onChange={handlePlanChange}
+                className="w-full px-3 py-2 border border-slate-700 rounded-md bg-[#0a0f1c] text-white focus:border-red-500 focus:outline-none font-bold cursor-pointer"
+              >
                 <option value="BASIC">Basic (Apenas PDV e Estoque)</option>
                 <option value="PRO">Pro (Multifilial + Relatórios)</option>
                 <option value="ENTERPRISE">Enterprise (Completo)</option>
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Cota Limite de Filiais (Lojas)</label>
+              <input
+                type="number"
+                name="maxUnits"
+                required
+                min={1}
+                value={maxUnits}
+                onChange={(e) => setMaxUnits(parseInt(e.target.value, 10) || 1)}
+                className="w-full px-3 py-2 border border-slate-700 rounded-md bg-[#0a0f1c] text-white focus:border-red-500 focus:outline-none font-bold"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Limite sugerido automaticamente, ajustável conforme necessidade.</p>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-slate-400 mb-1">Data de Vencimento (Deixe em branco p/ Vitalícia)</label>
-              <input type="date" name="expiresAt" className="w-full px-3 py-2 border border-slate-700 rounded-md bg-[#0a0f1c] text-white focus:border-red-500 focus:outline-none" />
+              <input type="date" name="expiresAt" className="w-full px-3 py-2 border border-slate-700 rounded-md bg-[#0a0f1c] text-white focus:border-red-500 focus:outline-none font-bold" />
             </div>
           </div>
         </div>

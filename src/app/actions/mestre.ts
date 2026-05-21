@@ -289,3 +289,49 @@ export async function createCompanyWithLicense(formData: FormData) {
     return { error: "Erro ao criar empresa: " + error.message };
   }
 }
+
+// 7. Update an existing company's license (Upgrade plan, units, status, expiresAt)
+export async function updateCompanyLicenseAction(
+  companyId: string,
+  plan: string,
+  maxUnits: number,
+  status: string,
+  expiresAtStr?: string
+) {
+  const session = await getSession();
+  if (!session || session.role !== "SUPER_ADMIN") {
+    return { error: "Acesso restrito ao Mestre." };
+  }
+
+  if (!companyId || !plan) {
+    return { error: "Empresa e plano são obrigatórios." };
+  }
+
+  try {
+    const expiresAt = expiresAtStr ? new Date(expiresAtStr) : null;
+
+    await prisma.license.upsert({
+      where: { companyId },
+      update: {
+        plan,
+        maxUnits,
+        status,
+        expiresAt
+      },
+      create: {
+        companyId,
+        plan,
+        maxUnits,
+        status,
+        expiresAt
+      }
+    });
+
+    revalidatePath("/mestre/empresas");
+    revalidatePath("/configuracao");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao atualizar licença:", error);
+    return { error: "Erro ao atualizar licença: " + error.message };
+  }
+}

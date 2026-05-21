@@ -10,7 +10,8 @@ import toast from "react-hot-toast";
 import { 
   toggleRequestPaymentStatus, 
   approveLicenseRequest, 
-  updateSystemConfig 
+  updateSystemConfig,
+  updateCompanyLicenseAction
 } from "@/app/actions/mestre";
 
 interface MestreDashboardClientProps {
@@ -52,6 +53,69 @@ export function MestreDashboardClient({
   const [copied, setCopied] = useState(false);
 
   const [savingConfig, setSavingConfig] = useState(false);
+
+  // Edit License Modal States
+  const [editLicenseCompany, setEditLicenseCompany] = useState<any | null>(null);
+  const [editPlan, setEditPlan] = useState<string>("BASIC");
+  const [editMaxUnits, setEditMaxUnits] = useState<number>(1);
+  const [editStatus, setEditStatus] = useState<string>("ACTIVE");
+  const [editExpiresAtStr, setEditExpiresAtStr] = useState<string>("");
+  const [updatingLicense, setUpdatingLicense] = useState(false);
+
+  const handleOpenEditLicense = (company: any) => {
+    setEditLicenseCompany(company);
+    const lic = company.license;
+    setEditPlan(lic?.plan || "BASIC");
+    setEditMaxUnits(lic?.maxUnits || 1);
+    setEditStatus(lic?.status || "ACTIVE");
+    setEditExpiresAtStr(lic?.expiresAt ? new Date(lic.expiresAt).toISOString().split("T")[0] : "");
+  };
+
+  const handleConfirmEditLicense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editLicenseCompany) return;
+
+    setUpdatingLicense(true);
+    try {
+      const res = await updateCompanyLicenseAction(
+        editLicenseCompany.id,
+        editPlan,
+        editMaxUnits,
+        editStatus,
+        editExpiresAtStr || undefined
+      );
+
+      if (res.error) {
+        toast.error("Erro ao atualizar licença: " + res.error);
+        return;
+      }
+
+      toast.success("Licença atualizada com sucesso!");
+      
+      // Update local companies state
+      setCompanies(prev => prev.map(c => {
+        if (c.id === editLicenseCompany.id) {
+          return {
+            ...c,
+            license: {
+              ...(c.license || {}),
+              plan: editPlan,
+              maxUnits: editMaxUnits,
+              status: editStatus,
+              expiresAt: editExpiresAtStr ? new Date(editExpiresAtStr) : null
+            }
+          };
+        }
+        return c;
+      }));
+
+      setEditLicenseCompany(null);
+    } catch (err: any) {
+      toast.error("Falha ao atualizar: " + err.message);
+    } finally {
+      setUpdatingLicense(false);
+    }
+  };
 
   // Toggle payment status action
   const handleTogglePayment = async (requestId: string, currentStatus: string) => {
@@ -223,6 +287,7 @@ export function MestreDashboardClient({
                 <th className="p-4 font-semibold">Unidades Permitidas</th>
                 <th className="p-4 font-semibold">Status Licença</th>
                 <th className="p-4 font-semibold">Vencimento</th>
+                <th className="p-4 font-semibold text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
@@ -258,12 +323,21 @@ export function MestreDashboardClient({
                     <td className="p-4 text-slate-400 text-sm">
                       {c.license?.expiresAt ? new Date(c.license.expiresAt).toLocaleDateString("pt-BR") : "Vitalícia"}
                     </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleOpenEditLicense(c)}
+                        className="bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 ml-auto cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-cyan-400" />
+                        Editar Licença
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {companies.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-500 text-sm">Nenhuma empresa cadastrada no sistema.</td>
+                  <td colSpan={8} className="p-12 text-center text-slate-500 text-sm">Nenhuma empresa cadastrada no sistema.</td>
                 </tr>
               )}
             </tbody>
@@ -601,6 +675,105 @@ export function MestreDashboardClient({
                 Fechar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- EDIT LICENSE DIALOG MODAL ----------------- */}
+      {editLicenseCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setEditLicenseCompany(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-black text-white mb-2 flex items-center gap-2">
+              <Edit2 className="w-5 h-5 text-cyan-400" />
+              Editar Licença - {editLicenseCompany.name}
+            </h3>
+            <p className="text-xs text-slate-400 mb-6">
+              Ajuste o plano, cota de unidades e validade de acesso para esta empresa.
+            </p>
+
+            <form onSubmit={handleConfirmEditLicense} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Plano Comercial</label>
+                <select
+                  value={editPlan}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditPlan(val);
+                    // Update suggested quota if the user shifts plans
+                    if (val === "BASIC") setEditMaxUnits(1);
+                    else if (val === "PRO") setEditMaxUnits(5);
+                    else if (val === "ENTERPRISE") setEditMaxUnits(99);
+                  }}
+                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:border-red-500 cursor-pointer"
+                >
+                  <option value="BASIC">Basic (PDV e Estoque) — 1 Loja</option>
+                  <option value="PRO">Pro (Multifilial) — Até 5 Lojas</option>
+                  <option value="ENTERPRISE">Enterprise (Completo) — Lojas Ilimitadas</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Cota Limite de Filiais (Lojas)</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={editMaxUnits}
+                  onChange={(e) => setEditMaxUnits(parseInt(e.target.value, 10) || 1)}
+                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:border-red-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">O cliente poderá cadastrar filiais até atingir esta cota.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Status do Acesso</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:border-red-500 cursor-pointer"
+                >
+                  <option value="ACTIVE">ATIVO</option>
+                  <option value="SUSPENDED">SUSPENSO</option>
+                  <option value="CANCELLED">CANCELADO</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Data de Vencimento da Licença</label>
+                <input
+                  type="date"
+                  value={editExpiresAtStr}
+                  onChange={(e) => setEditExpiresAtStr(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-[#0a0f1c] border border-slate-700 rounded-lg text-white focus:outline-none focus:border-red-500 font-bold"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Deixe em branco para licença vitalícia.</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setEditLicenseCompany(null)}
+                  disabled={updatingLicense}
+                  className="px-4 py-2 text-xs font-semibold bg-slate-850 hover:bg-slate-800 text-white rounded-lg border border-slate-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingLicense}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white font-black py-2 px-6 rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow-md"
+                >
+                  {updatingLicense ? "Salvando..." : "Salvar Alterações"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

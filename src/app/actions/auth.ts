@@ -5,12 +5,15 @@ import { setSession, clearSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export async function loginUser(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const rawEmail = formData.get("email") as string;
+  const rawPassword = formData.get("password") as string;
 
-  if (!email || !password) {
+  if (!rawEmail || !rawPassword) {
     return { error: "Preencha todos os campos" };
   }
+
+  const email = rawEmail.trim().toLowerCase();
+  const password = rawPassword.trim();
 
   const user = await prisma.user.findUnique({
     where: { email }

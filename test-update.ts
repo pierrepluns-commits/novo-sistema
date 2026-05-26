@@ -1,30 +1,35 @@
-import { prisma } from "./src/lib/prisma";
+import { createClient } from "@libsql/client";
+import * as dotenv from "dotenv";
+dotenv.config();
 
-async function test() {
-  console.log("Fetching users...");
-  const users = await prisma.user.findMany({ take: 1 });
-  if (users.length === 0) {
-    console.log("No users found");
-    return;
-  }
+const client = createClient({
+  url: process.env.DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
-  const user = users[0];
-  console.log("Trying to update user:", user.id);
+async function main() {
+  console.log("=== ADICIONANDO COLUNAS DE PAGAMENTO DIRETAMENTE NO TURSO ===");
   
-  try {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        name: user.name + " Test",
-        unitId: user.unitId || null,
-        role: user.role,
-        permissions: user.permissions
-      }
-    });
-    console.log("Update SUCCESS!");
-  } catch (e: any) {
-    console.error("Update FAILED:", e.message);
+  const columns = [
+    { name: "paymentGateway", type: "TEXT DEFAULT 'SIMULATOR'" },
+    { name: "gatewayApiKey", type: "TEXT" },
+    { name: "webhookSecret", type: "TEXT" },
+    { name: "pixKey", type: "TEXT" }
+  ];
+
+  for (const col of columns) {
+    try {
+      console.log(`Adicionando coluna ${col.name}...`);
+      await client.execute(`ALTER TABLE SystemConfig ADD COLUMN ${col.name} ${col.type};`);
+      console.log(`✅ Coluna ${col.name} adicionada com sucesso.`);
+    } catch (e: any) {
+      console.log(`⚠️ Coluna ${col.name} pode já existir ou erro:`, e.message);
+    }
   }
+
+  console.log("\n=== CONCLUÍDO ===");
 }
 
-test().finally(() => console.log("Done"));
+main().finally(() => {
+  client.close();
+});

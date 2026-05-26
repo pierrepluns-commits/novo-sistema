@@ -875,11 +875,11 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
                 <div className="bg-[#050914] border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
                   <div>
                     <span style={{ color: primaryColor }} className="text-[10px] font-black uppercase tracking-widest block font-mono">Resumo do Pedido</span>
-                    <h4 className="text-lg font-extrabold text-white">Licença {plans.find(p => p.id === selectedPlan)?.name}</h4>
-                    <span className="text-xs text-slate-400">{plans.find(p => p.id === selectedPlan)?.maxUnits === 99 ? 'Lojas Ilimitadas' : `${plans.find(p => p.id === selectedPlan)?.maxUnits} Unidades`}</span>
+                    <h4 className="text-lg font-extrabold text-white">Licença {plans.find((p: any) => p.id === selectedPlan)?.name}</h4>
+                    <span className="text-xs text-slate-400">{plans.find((p: any) => p.id === selectedPlan)?.maxUnits === 99 ? 'Lojas Ilimitadas' : `${plans.find((p: any) => p.id === selectedPlan)?.maxUnits} Unidades`}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-2xl font-black text-white font-mono">R$ {plans.find(p => p.id === selectedPlan)?.price.toFixed(2)}</span>
+                    <span className="text-2xl font-black text-white font-mono">R$ {plans.find((p: any) => p.id === selectedPlan)?.price.toFixed(2)}</span>
                     <span className="text-slate-500 text-[10px] block font-bold">faturamento mensal</span>
                   </div>
                 </div>

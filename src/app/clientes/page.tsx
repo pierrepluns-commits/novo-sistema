@@ -5,7 +5,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { 
   Plus, Search, Edit, Trash2, Phone, Mail, MapPin, 
-  History, X, Check, Loader2, ArrowUpRight, ClipboardList 
+  History, X, Check, Loader2, ArrowUpRight, ClipboardList,
+  Contact
 } from "lucide-react";
 import { 
   createClientAction, 

@@ -39,6 +39,8 @@ model Company {
   products     Product[]
   sales        Sale[]
   transactions FinancialTransaction[]
+  clients      Client[]
+  serviceOrders ServiceOrder[]
 }
 
 model Unit {
@@ -58,6 +60,7 @@ model Unit {
   transactions  FinancialTransaction[]
   stockMoves    StockMovement[]
   cashRegisters CashRegister[]
+  serviceOrders ServiceOrder[]
 }
 
 model User {
@@ -79,6 +82,7 @@ model User {
   actionLogs            ActionLog[]
   stockMoves            StockMovement[]
   cashRegisters         CashRegister[]
+  serviceOrders         ServiceOrder[]
 }
 
 model Product {
@@ -98,6 +102,7 @@ model Product {
   stocks    Stock[]
   saleItems SaleItem[]
   stockMoves StockMovement[]
+  serviceOrderItems ServiceOrderItem[]
   
   // For Kits:
   kitItems      ProductBundle[] @relation("KitParent")
@@ -254,3 +259,76 @@ model LicenseRequest {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+model Client {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  document  String?  // CPF or CNPJ
+  phone     String   // WhatsApp
+  email     String?
+  cep       String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  serviceOrders ServiceOrder[]
+}
+
+model ServiceOrder {
+  id                String    @id @default(uuid())
+  osNumber          Int       // Numeração sequencial visual
+  companyId         String
+  unitId            String
+  clientId          String
+  userId            String?   // Técnico / Atendente que criou/executou
+  equipmentType     String    // Ex: Smartphone, Console, Notebook
+  equipmentBrand    String
+  equipmentModel    String
+  equipmentSerial   String?   // IMEI ou Número de Série
+  equipmentColor    String?
+  equipmentPassword String?   // Senha de desbloqueio
+  reportedDefect    String    // Relato do cliente
+  physicalState     String?   // Arranhões, trincados
+  accessories       String?   // Capa, carregador, etc
+  checklist         String    @default("{}") // Status de testes em JSON string
+  status            String    @default("BUDGET") // BUDGET, WAITING_APPROVAL, WAITING_PARTS, IN_PROGRESS, COMPLETED, DELIVERED, UNREPAIRABLE
+  technicalReport   String?   // Laudo técnico
+  servicePrice      Float     @default(0) // Preço da mão de obra
+  partsPrice        Float     @default(0) // Preço total das peças
+  discount          Float     @default(0)
+  prepayment        Float     @default(0) // Sinal de entrada
+  totalAmount       Float     @default(0) // (servicePrice + partsPrice - discount)
+  paymentMethod     String?   // Dinheiro, PIX, Cartão
+  installments      Int       @default(1)
+  cardFee           Float     @default(0)
+  
+  // Sistema de Garantias
+  warrantyPeriod    Int       @default(0) // Prazo em dias (ex: 90)
+  warrantyExpiresAt DateTime?
+  warrantyTerms     String?
+  warrantyStatus    String    @default("ACTIVE") // ACTIVE, EXPIRED, VOIDED
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit    Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items   ServiceOrderItem[]
+}
+
+model ServiceOrderItem {
+  id             String  @id @default(uuid())
+  serviceOrderId String
+  productId      String
+  quantity       Int
+  unitPrice      Float
+  unitCost       Float   @default(0)
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+}
+

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { 
   LayoutDashboard, Users, Package, ShoppingCart, 
-  DollarSign, Inbox, Settings, Shield, Building, Coins, CreditCard
+  DollarSign, Inbox, Settings, Shield, Building, Coins, CreditCard,
+  ClipboardList, Contact
 } from "lucide-react";
 
 interface SidebarProps {
@@ -21,6 +22,8 @@ function SidebarContent({ role }: SidebarProps) {
 
   const normalLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-400", bgHover: "hover:bg-blue-500/10" },
+    { href: "/clientes", label: "Clientes", icon: Contact, color: "text-pink-400", bgHover: "hover:bg-pink-500/10" },
+    { href: "/os", label: "Ordens de Serviço", icon: ClipboardList, color: "text-indigo-400", bgHover: "hover:bg-indigo-500/10" },
     { href: "/usuarios", label: "Usuários", icon: Users, color: "text-purple-400", bgHover: "hover:bg-purple-500/10" },
     { href: "/estoque", label: "Estoque", icon: Package, color: "text-orange-400", bgHover: "hover:bg-orange-500/10" },
     { href: "/caixa", label: "Caixa", icon: Inbox, color: "text-yellow-400", bgHover: "hover:bg-yellow-500/10" },

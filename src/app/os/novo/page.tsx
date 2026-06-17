@@ -240,7 +240,7 @@ export default function NovaOSPage() {
           setGlobalError(res.error);
         }
       } else {
-        router.push(`/os/editar/${res.osId}`);
+        router.push(`/os/imprimir/${res.osId}`);
       }
     } catch (err: any) {
       setGlobalError("Erro ao salvar: " + err.message);

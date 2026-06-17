@@ -381,10 +381,8 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
         setGlobalMessage({ text: res.error, type: "error" });
         setCheckoutModalOpen(false);
       } else {
-        setGlobalMessage({ text: "O.S. faturada, baixada no estoque e finalizada com sucesso!", type: "success" });
         setCheckoutModalOpen(false);
-        setActiveTab("billing");
-        router.refresh();
+        router.push(`/os/imprimir/${os.id}`);
       }
     });
   };

@@ -35,8 +35,8 @@ export default async function RootLayout({
   const headersList = await headers();
   const pathname = headersList.get('x-pathname') || '';
   
-  // Se for a rota pública /, ou login, não exibe o sidebar do app
-  const isAppRoute = pathname !== '/' && !pathname.startsWith('/login') && !pathname.startsWith('/mestre/login');
+  // Se for a rota pública /, login, ou impressão de O.S., não exibe o sidebar do app
+  const isAppRoute = pathname !== '/' && !pathname.startsWith('/login') && !pathname.startsWith('/mestre/login') && !pathname.includes('/os/imprimir');
 
   let units: any[] = [];
   let selectedUnitId: string | null = null;

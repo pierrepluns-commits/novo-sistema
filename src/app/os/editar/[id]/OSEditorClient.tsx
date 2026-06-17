@@ -73,6 +73,7 @@ interface ServiceOrder {
   updatedAt: Date;
   client: Client;
   items: ServiceOrderItem[];
+  user: { name: string } | null;
 }
 
 interface AvailablePart {
@@ -177,6 +178,15 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
     });
   };
 
+  // Parse checklist to get custom technicianName if present
+  let initialChecklistObj: Record<string, any> = {};
+  try {
+    initialChecklistObj = JSON.parse(os.checklist || "{}");
+  } catch {
+    initialChecklistObj = {};
+  }
+  const savedTechName = initialChecklistObj.technicianName || os.user?.name || "";
+
   // --- TAB 2: Technical Report State ---
   const [techForm, setTechForm] = useState({
     technicalReport: os.technicalReport || "",
@@ -185,6 +195,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
     warrantyPeriod: String(os.warrantyPeriod),
     warrantyTerms: os.warrantyTerms || "Garantia legal de 90 dias cobrindo defeitos das peças substituídas sob uso normal. Não cobre danos por queda, mau uso ou contato com líquidos.",
     userId: os.userId || "",
+    technicianName: savedTechName,
   });
 
   const handleUpdateTechnical = async () => {
@@ -197,7 +208,8 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
         techForm.status,
         parseInt(techForm.warrantyPeriod, 10) || 0,
         techForm.warrantyTerms,
-        techForm.userId || undefined
+        techForm.userId || undefined,
+        techForm.technicianName
       );
 
       if (res.error) {
@@ -243,17 +255,17 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
       return;
     }
     const qty = parseInt(partQty, 10);
-    const price = parseFloat(partPrice);
-    const cost = parseFloat(customPartCost);
+    const price = parseFloat(partPrice) || 0;
+    const cost = parseFloat(customPartCost) || 0;
     if (isNaN(qty) || qty <= 0) {
       setGlobalMessage({ text: "Quantidade inválida.", type: "error" });
       return;
     }
-    if (isNaN(price) || price < 0) {
+    if (price < 0) {
       setGlobalMessage({ text: "Preço de venda inválido.", type: "error" });
       return;
     }
-    if (isNaN(cost) || cost < 0) {
+    if (cost < 0) {
       setGlobalMessage({ text: "Preço de custo inválido.", type: "error" });
       return;
     }
@@ -300,12 +312,12 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
     }
 
     const qty = parseInt(partQty, 10);
-    const price = parseFloat(partPrice);
+    const price = parseFloat(partPrice) || 0;
     if (isNaN(qty) || qty <= 0) {
       setGlobalMessage({ text: "Quantidade inválida.", type: "error" });
       return;
     }
-    if (isNaN(price) || price < 0) {
+    if (price < 0) {
       setGlobalMessage({ text: "Preço inválido.", type: "error" });
       return;
     }
@@ -732,19 +744,14 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                   Técnico Responsável
                 </label>
-                <select
-                  value={techForm.userId}
+                <input
+                  type="text"
+                  placeholder="Nome do técnico responsável..."
+                  value={techForm.technicianName}
                   disabled={os.status === "DELIVERED"}
-                  onChange={(e) => setTechForm((prev) => ({ ...prev, userId: e.target.value }))}
+                  onChange={(e) => setTechForm((prev) => ({ ...prev, technicianName: e.target.value }))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold text-white"
-                >
-                  <option value="">Sem técnico definido</option>
-                  {users?.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
 

@@ -198,7 +198,8 @@ export async function updateServiceOrderTechnicalAction(
   status: string,
   warrantyPeriod: number,
   warrantyTerms: string,
-  userId?: string
+  userId?: string,
+  technicianName?: string
 ) {
   const session = await getSession();
   if (!session || !session.companyId) {
@@ -215,6 +216,18 @@ export async function updateServiceOrderTechnicalAction(
 
     const totalAmount = servicePrice + os.partsPrice - os.discount;
 
+    // Parse existing checklist and inject technicianName
+    let checklistObj: Record<string, any> = {};
+    try {
+      checklistObj = JSON.parse(os.checklist || "{}");
+    } catch {
+      checklistObj = {};
+    }
+
+    if (technicianName !== undefined) {
+      checklistObj.technicianName = technicianName.trim();
+    }
+
     await prisma.serviceOrder.update({
       where: { id: osId },
       data: {
@@ -225,6 +238,7 @@ export async function updateServiceOrderTechnicalAction(
         warrantyTerms: warrantyTerms ? warrantyTerms.trim() : null,
         totalAmount,
         userId: userId || null,
+        checklist: JSON.stringify(checklistObj),
       },
     });
 

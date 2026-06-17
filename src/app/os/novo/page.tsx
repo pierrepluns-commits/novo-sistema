@@ -50,6 +50,7 @@ export default function NovaOSPage() {
 
   // Quick Create Client Modal
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [isLojista, setIsLojista] = useState(false);
   const [clientForm, setClientForm] = useState({ name: "", phone: "", document: "", cep: "", street: "", number: "", complement: "" });
   const [clientFormError, setClientFormError] = useState("");
   const [savingClient, setSavingClient] = useState(false);
@@ -152,8 +153,13 @@ export default function NovaOSPage() {
       const complement = clientForm.complement.trim();
       const fullAddress = street ? `${street}, ${number}${complement ? ` - ${complement}` : ""}` : "";
 
+      let finalName = clientForm.name.trim();
+      if (isLojista) {
+        finalName = `${finalName} (Lojista)`;
+      }
+
       const data = new FormData();
-      data.append("name", clientForm.name);
+      data.append("name", finalName);
       data.append("phone", clientForm.phone);
       data.append("document", clientForm.document);
       data.append("cep", clientForm.cep);
@@ -166,6 +172,7 @@ export default function NovaOSPage() {
         setSelectedClient(res.client as any);
         setClientQuery(res.client.name);
         setIsClientModalOpen(false);
+        setIsLojista(false);
         setClientForm({ name: "", phone: "", document: "", cep: "", street: "", number: "", complement: "" });
       }
     } catch (err: any) {
@@ -730,7 +737,10 @@ export default function NovaOSPage() {
                 Cadastrar Novo Cliente
               </h3>
               <button 
-                onClick={() => setIsClientModalOpen(false)}
+                onClick={() => {
+                  setIsClientModalOpen(false);
+                  setIsLojista(false);
+                }}
                 className="text-slate-500 hover:text-slate-300 transition-colors p-1"
               >
                 <X className="w-5 h-5" />
@@ -757,6 +767,20 @@ export default function NovaOSPage() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"
                   required
                 />
+              </div>
+
+              {/* Lojista Checkbox */}
+              <div className="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  id="quickIsLojista"
+                  checked={isLojista}
+                  onChange={(e) => setIsLojista(e.target.checked)}
+                  className="rounded border-slate-800 bg-slate-950 text-indigo-500 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="quickIsLojista" className="text-xs font-bold text-slate-300 cursor-pointer select-none">
+                  Este cliente é um Lojista (Parceiro comercial)
+                </label>
               </div>
 
               {/* Phone */}

@@ -62,6 +62,7 @@ export default function ClientesPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Form State
+  const [isLojista, setIsLojista] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     document: "",
@@ -100,6 +101,7 @@ export default function ClientesPage() {
 
   const openNewModal = () => {
     setEditingClient(null);
+    setIsLojista(false);
     setFormData({
       name: "",
       document: "",
@@ -118,6 +120,11 @@ export default function ClientesPage() {
   const openEditModal = (client: Client) => {
     setEditingClient(client);
     
+    // Check if client name has the Lojista suffix
+    const hasLojista = client.name.endsWith(" (Lojista)");
+    const cleanName = hasLojista ? client.name.substring(0, client.name.length - 10) : client.name;
+    setIsLojista(hasLojista);
+
     // Parse address back to street, number, and complement
     let street = "";
     let number = "";
@@ -140,7 +147,7 @@ export default function ClientesPage() {
     }
 
     setFormData({
-      name: client.name,
+      name: cleanName,
       document: client.document || "",
       phone: client.phone,
       email: client.email || "",
@@ -175,8 +182,14 @@ export default function ClientesPage() {
       const complement = formData.complement.trim();
       const fullAddress = street ? `${street}, ${number}${complement ? ` - ${complement}` : ""}` : "";
 
+      let finalName = formData.name.trim();
+      if (isLojista) {
+        finalName = `${finalName} (Lojista)`;
+      }
+
       const updatedFormData = {
         ...formData,
+        name: finalName,
         address: fullAddress,
       };
 
@@ -541,6 +554,20 @@ export default function ClientesPage() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   required
                 />
+              </div>
+
+              {/* Lojista Checkbox */}
+              <div className="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  id="isLojista"
+                  checked={isLojista}
+                  onChange={(e) => setIsLojista(e.target.checked)}
+                  className="rounded border-slate-800 bg-slate-950 text-cyan-500 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="isLojista" className="text-xs font-bold text-slate-300 cursor-pointer select-none">
+                  Este cliente é um Lojista (Parceiro comercial)
+                </label>
               </div>
 
               {/* Document and Phone Grid */}

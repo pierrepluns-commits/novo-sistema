@@ -44,7 +44,8 @@ export default function CaixaPrintClient({ register, sales, serviceOrders }: Cai
       }
     } else {
       totalExpenses += tx.amount;
-      if (tx.category === "Saída Manual" || tx.category === "Custo de Produtos" || tx.category === "Custo de Serviços") {
+      // Somente deduzimos do saldo da gaveta física o que de fato sai em dinheiro (Sangria manual e estorno em dinheiro)
+      if (tx.category === "Saída Manual") {
         cashOutflows += tx.amount;
       } else if (tx.category === "Estorno") {
         if (tx.description.includes("Dinheiro") || tx.description.includes("CASH")) {

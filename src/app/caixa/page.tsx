@@ -96,8 +96,8 @@ export default async function CaixaPage() {
         // Para EXPENSE (Sangrias, Estornos, Custo de Peças/Produtos e Custo de Serviços)
         totalExpenses += tx.amount;
 
-        // Se foi em dinheiro ou custo registrado da OS, deduzimos do saldo da gaveta física
-        if (tx.category === "Saída Manual" || tx.category === "Custo de Produtos" || tx.category === "Custo de Serviços") {
+        // Somente deduzimos do saldo da gaveta física o que de fato sai em dinheiro (Sangria manual e estorno em dinheiro)
+        if (tx.category === "Saída Manual") {
           cashOutflows += tx.amount;
         } else if (tx.category === "Estorno") {
           if (tx.description.includes("Dinheiro") || tx.description.includes("CASH")) {

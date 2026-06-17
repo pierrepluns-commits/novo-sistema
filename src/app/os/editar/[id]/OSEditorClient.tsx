@@ -301,7 +301,9 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
         paymentMethod,
         parseFloat(cardFee) || 0,
         parseInt(installments, 10) || 1,
-        discountNum
+        discountNum,
+        parseFloat(techForm.servicePrice) || 0,
+        parseFloat(techForm.cardServicePrice) || 0
       );
 
       if (res.error) {

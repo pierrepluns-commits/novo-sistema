@@ -463,7 +463,9 @@ export async function finishAndBillServiceOrderAction(
   paymentMethod: string,
   cardFee: number = 0,
   installments: number = 1,
-  discount: number = 0
+  discount: number = 0,
+  servicePrice?: number,
+  cardServicePrice?: number
 ) {
   const session = await getSession();
   if (!session || !session.companyId) {
@@ -487,13 +489,18 @@ export async function finishAndBillServiceOrderAction(
       checklistObj = {};
     }
 
+    const currentServicePrice = servicePrice !== undefined ? servicePrice : os.servicePrice;
+    if (cardServicePrice !== undefined) {
+      checklistObj.cardServicePrice = cardServicePrice;
+    }
+
     const cardPrice = checklistObj.cardServicePrice !== undefined && checklistObj.cardServicePrice !== null
       ? parseFloat(checklistObj.cardServicePrice)
-      : os.servicePrice;
+      : currentServicePrice;
 
     // Determine the base labor price based on payment method
     const isCard = paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD";
-    const baseLaborPrice = isCard ? cardPrice : os.servicePrice;
+    const baseLaborPrice = isCard ? cardPrice : currentServicePrice;
 
     // Calcular valores finais a receber
     const totalAmount = baseLaborPrice - discount;
@@ -632,6 +639,7 @@ export async function finishAndBillServiceOrderAction(
           warrantyStatus: os.warrantyPeriod > 0 ? "ACTIVE" : "VOIDED",
           totalAmount,
           servicePrice: baseLaborPrice,
+          checklist: JSON.stringify(checklistObj),
         },
       });
     });

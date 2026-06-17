@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { openCashRegister, closeCashRegister } from "@/app/actions/caixa";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 interface Props {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function CashRegisterClient({ isOpen, registerId, expectedCash = 0 }: Props) {
+  const router = useRouter();
   const [amount, setAmount] = useState<string>("");
   const [pixAmount, setPixAmount] = useState<string>("");
   const [creditAmount, setCreditAmount] = useState<string>("");
@@ -61,6 +63,7 @@ export function CashRegisterClient({ isOpen, registerId, expectedCash = 0 }: Pro
         setPixAmount("");
         setCreditAmount("");
         setDebitAmount("");
+        router.push(`/caixa/imprimir/${registerId}`);
       }
     } catch (error: any) {
       toast.error(error.message || "Erro ao processar caixa.");

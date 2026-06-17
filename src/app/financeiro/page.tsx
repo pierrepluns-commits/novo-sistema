@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { 
   TrendingUp, TrendingDown, DollarSign, FileText, Users, ShoppingBag, 
   Calendar, ArrowUpRight, ArrowDownRight, Award, Percent, ChevronRight, Trash2,
-  Filter, Search
+  Filter, Search, Wrench
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -30,6 +30,7 @@ interface PageProps {
     category?: string;
     area?: string; // area filter: all, pdv, os, aparelhos
     q?: string;
+    commissionRate?: string;
   }>;
 }
 
@@ -614,8 +615,90 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       activeStyle: "bg-rose-600 border-rose-500 shadow-[0_4px_20px_rgba(244,63,94,0.45)] text-white font-black",
       hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-rose-500/40 hover:bg-rose-600/15 hover:text-rose-300",
       moneyClass: "text-emerald-400 font-extrabold"
+    },
+    {
+      id: "comissoes",
+      label: "Comissões por Técnico",
+      icon: Wrench,
+      color: "text-amber-400",
+      inactiveIconColor: "text-slate-500 group-hover:text-amber-400",
+      activeStyle: "bg-amber-600 border-amber-500 shadow-[0_4px_20px_rgba(245,158,11,0.45)] text-white font-black",
+      hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-amber-500/40 hover:bg-amber-600/15 hover:text-amber-300",
+      moneyClass: "text-emerald-400 font-extrabold"
     }
   ];
+
+  // ==========================================
+  // CÁLCULO DE COMISSÕES POR TÉCNICO
+  // ==========================================
+  const techCommissionRate = params.commissionRate ? parseInt(params.commissionRate) : 50;
+
+  const techStats: Record<string, {
+    name: string;
+    count: number;
+    totalBilled: number;
+    totalServicePrice: number;
+    totalCommission: number;
+    detailedOS: Array<{
+      id: string;
+      osNumber: number;
+      clientName: string;
+      brand: string;
+      model: string;
+      servicePrice: number;
+      totalAmount: number;
+      commission: number;
+      date: Date;
+      status: string;
+    }>;
+  }> = {};
+
+  for (const os of serviceOrders) {
+    if (os.status !== "DELIVERED" && os.status !== "COMPLETED") continue;
+
+    let checklistObj: Record<string, any> = {};
+    try {
+      checklistObj = JSON.parse(os.checklist || "{}");
+    } catch {
+      checklistObj = {};
+    }
+
+    const techName = checklistObj.technicianName?.trim() || os.user?.name || "Sem Técnico";
+
+    if (!techStats[techName]) {
+      techStats[techName] = {
+        name: techName,
+        count: 0,
+        totalBilled: 0,
+        totalServicePrice: 0,
+        totalCommission: 0,
+        detailedOS: []
+      };
+    }
+
+    const servicePriceVal = os.servicePrice || 0;
+    const commissionVal = servicePriceVal * (techCommissionRate / 100);
+
+    techStats[techName].count += 1;
+    techStats[techName].totalBilled += os.totalAmount;
+    techStats[techName].totalServicePrice += servicePriceVal;
+    techStats[techName].totalCommission += commissionVal;
+
+    techStats[techName].detailedOS.push({
+      id: os.id,
+      osNumber: os.osNumber,
+      clientName: os.client.name,
+      brand: os.equipmentBrand,
+      model: os.equipmentModel,
+      servicePrice: servicePriceVal,
+      totalAmount: os.totalAmount,
+      commission: commissionVal,
+      date: os.updatedAt,
+      status: os.status,
+    });
+  }
+
+  const sortedTechStats = Object.values(techStats).sort((a, b) => b.totalCommission - a.totalCommission);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1672,7 +1755,139 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
               )}
             </div>
           </div>
-          
+        </div>
+      )}
+      {/* ==========================================
+          TELA 7: COMISSÕES POR TÉCNICO
+          ========================================== */}
+      {activeTab === "comissoes" && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-xl space-y-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-amber-400" />
+                  Comissões de Serviços por Técnico
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Relatório detalhado de comissões calculadas sobre a mão de obra de O.S. finalizadas no período
+                </p>
+              </div>
+
+              {/* Commission selector */}
+              <div className="flex flex-wrap items-center gap-2 bg-[#0a0f1c] p-2 rounded-xl border border-slate-800 shrink-0">
+                <span className="text-[10px] uppercase font-bold text-slate-500 px-2">Comissão Padrão:</span>
+                {[50, 40, 30, 0].map((rate) => (
+                  <Link
+                    key={rate}
+                    href={`/financeiro?tab=comissoes&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=${area}&commissionRate=${rate}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                      techCommissionRate === rate
+                        ? "bg-indigo-600 border-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.25)]"
+                        : "bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                    }`}
+                  >
+                    {rate}%
+                  </Link>
+                ))}
+                <form method="GET" action="/financeiro" className="flex items-center ml-2 gap-1.5">
+                  <input type="hidden" name="tab" value="comissoes" />
+                  <input type="hidden" name="periodo" value={periodo} />
+                  <input type="hidden" name="startDate" value={startDateStr} />
+                  <input type="hidden" name="endDate" value={endDateStr} />
+                  <input type="hidden" name="area" value={area} />
+                  <div className="relative w-16">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      name="commissionRate"
+                      defaultValue={techCommissionRate}
+                      placeholder="Outro"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-center text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    />
+                  </div>
+                  <button type="submit" className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg text-white font-bold transition-colors">Ir</button>
+                </form>
+              </div>
+            </div>
+
+            {/* List of technicians */}
+            <div className="space-y-4">
+              {sortedTechStats.map((stat) => (
+                <details key={stat.name} className="group bg-slate-900/40 rounded-2xl border border-slate-800/80 overflow-hidden">
+                  <summary className="flex justify-between items-center p-4 cursor-pointer hover:bg-slate-850/30 transition-all list-none select-none">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
+                        <Wrench className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{stat.name}</p>
+                        <p className="text-xs text-slate-500 font-semibold">{stat.count} {stat.count === 1 ? 'serviço' : 'serviços'} realizado(s)</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Comissão</p>
+                        <p className="text-base font-extrabold text-amber-500 font-mono">R$ {stat.totalCommission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      <span className="text-slate-500 group-open:rotate-180 transition-transform duration-300 text-xs">
+                        ▼
+                      </span>
+                    </div>
+                  </summary>
+                  <div className="p-5 border-t border-slate-850 bg-slate-950/20 space-y-3">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs min-w-[700px]">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-[10px] text-slate-500 font-bold uppercase pb-2">
+                            <th className="pb-2">O.S.</th>
+                            <th className="pb-2">Aparelho</th>
+                            <th className="pb-2">Cliente</th>
+                            <th className="pb-2">Data Encerram.</th>
+                            <th className="pb-2">Status</th>
+                            <th className="pb-2 text-right">Mão de Obra</th>
+                            <th className="pb-2 text-right">Comissão ({techCommissionRate}%)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850/80">
+                          {stat.detailedOS.map((os) => (
+                            <tr key={os.id} className="hover:bg-slate-900/10">
+                              <td className="py-2.5 font-mono font-bold text-indigo-400">
+                                <Link href={`/os/editar/${os.id}`} className="hover:underline">
+                                  #{os.osNumber}
+                                </Link>
+                              </td>
+                              <td className="py-2.5 text-white font-medium">{os.brand} {os.model}</td>
+                              <td className="py-2.5 text-slate-300">{os.clientName}</td>
+                              <td className="py-2.5 text-slate-400 font-mono">
+                                {new Date(os.date).toLocaleDateString("pt-BR")} {new Date(os.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              </td>
+                              <td className="py-2.5">
+                                <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                  os.status === 'DELIVERED' 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                    : 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                }`}>
+                                  {os.status === 'DELIVERED' ? 'Entregue' : 'Pronto'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 text-right font-mono text-slate-400">R$ {os.servicePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                              <td className="py-2.5 text-right font-mono font-bold text-emerald-400">R$ {os.commission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </details>
+              ))}
+
+              {sortedTechStats.length === 0 && (
+                <p className="text-slate-500 text-sm text-center py-8">Nenhum serviço prestado por técnicos finalizado no período selecionado.</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
       

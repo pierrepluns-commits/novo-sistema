@@ -61,3 +61,49 @@ body {
   text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
   color: var(--primary);
 }
+
+/* Premium Money Value Distinction Colors with Glows */
+.val-positive {
+  color: #34d399 !important; /* text-emerald-400 */
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(52, 211, 153, 0.3);
+}
+
+.val-negative {
+  color: #fb7185 !important; /* text-rose-400 */
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(251, 113, 133, 0.3);
+}
+
+.val-cost {
+  color: #f59e0b !important; /* text-amber-500 */
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+/* Premium Interactive Glow Elements */
+.card-glow {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(30, 41, 59, 0.8);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-glow:hover {
+  border-color: rgba(51, 65, 85, 0.8);
+  box-shadow: 0 10px 30px rgba(0, 243, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.input-glow {
+  transition: all 0.3s ease;
+}
+
+.input-glow:focus {
+  outline: none;
+  border-color: #38bdf8; /* border-sky-400 */
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25), inset 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+

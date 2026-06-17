@@ -4,13 +4,15 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { 
   TrendingUp, TrendingDown, DollarSign, FileText, Users, ShoppingBag, 
-  Calendar, ArrowUpRight, ArrowDownRight, Award, Percent, ChevronRight, Trash2
+  Calendar, ArrowUpRight, ArrowDownRight, Award, Percent, ChevronRight, Trash2,
+  Filter, Search
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { getSelectedUnitId } from "@/app/actions/unit";
 import { deleteTransaction } from "@/app/actions/finance";
 import { EditSaleModal } from "@/components/forms/CaixaClientForms";
+import { PieChart } from "@/components/ui/PieChart";
 
 interface PageProps {
   searchParams: Promise<{
@@ -26,6 +28,8 @@ interface PageProps {
     anoB?: string;
     payment?: string;
     category?: string;
+    area?: string; // area filter: all, pdv, os, aparelhos
+    q?: string;
   }>;
 }
 
@@ -53,6 +57,8 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
   const typeFilter = params.type || "all";
   const paymentFilter = params.payment || "all";
   const categoryFilter = params.category || "all";
+  const area = params.area || "all";
+  const query = params.q || "";
 
   const now = new Date();
 
@@ -121,7 +127,8 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
   // Buscar dados em paralelo para otimização de velocidade
   const [
     transactions, sales, allUsers, allStocks,
-    txsA, salesA, txsB, salesB
+    txsA, salesA, txsB, salesB,
+    serviceOrders, serviceOrdersA, serviceOrdersB
   ] = await Promise.all([
     prisma.financialTransaction.findMany({
       where: {
@@ -184,36 +191,128 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       include: {
         items: { include: { product: true } }
       }
+    }),
+    // Ordens de Serviço do período principal
+    prisma.serviceOrder.findMany({
+      where: {
+        ...baseWhere,
+        updatedAt: { gte: start, lte: end }
+      },
+      include: {
+        client: true,
+        user: true,
+        items: { include: { product: true } }
+      }
+    }),
+    // O.S. Mês A
+    prisma.serviceOrder.findMany({
+      where: {
+        ...baseWhere,
+        updatedAt: { gte: startA, lte: endA }
+      },
+      include: { items: true }
+    }),
+    // O.S. Mês B
+    prisma.serviceOrder.findMany({
+      where: {
+        ...baseWhere,
+        updatedAt: { gte: startB, lte: endB }
+      },
+      include: { items: true }
     })
   ]);
 
   // ==========================================
+  // AUXILIAR DE COMPARAÇÃO DE APARELHOS
+  // ==========================================
+  const isPhone = (name: string) => {
+    const n = name.toLowerCase();
+    return n.includes("celular") || n.includes("telefone") || n.includes("aparelho") ||
+           n.includes("iphone") || n.includes("samsung") || n.includes("xiaomi") ||
+           n.includes("motorola") || n.includes("redmi") || n.includes("smartphone");
+  };
+
+  // ==========================================
   // CÁLCULOS FINANCEIROS TOTAIS (MÊS SELECIONADO ATUAL)
   // ==========================================
-  const totalRevenue = sales.reduce((acc, s) => acc + s.totalAmount, 0);
+  
+  // 1. Receitas do PDV (Venda de Produtos)
+  const pdvRevenue = sales.reduce((acc, s) => acc + s.totalAmount, 0);
+  const totalRevenue = pdvRevenue;
+  
+  // 2. Receitas de Serviços (Ordens de Serviço faturadas ou adiantamentos)
+  const osRevenue = serviceOrders.reduce((acc, o) => acc + o.totalAmount, 0);
 
-  // Total de Despesas Gerais (Sem CMV para evitar duplicar custo)
-  const totalExpense = transactions
-    .filter(t => t.type === "EXPENSE" && t.category !== "Custo de Produtos")
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  // Custo das Mercadorias Vendidas (CMV)
-  let totalCMV = 0;
+  // 3. Custos de Produtos Vendidos (CMV PDV)
+  let pdvCMV = 0;
   for (const sale of sales) {
     for (const item of sale.items) {
       const cost = item.unitCost || item.product?.cost || 0;
-      totalCMV += item.quantity * cost;
+      pdvCMV += item.quantity * cost;
     }
   }
 
-  const totalStockCost = allStocks.reduce((sum, s) => sum + s.quantity * (s.product?.cost || 0), 0);
-  const netProfit = totalRevenue - totalCMV - totalExpense;
+  // 4. Custos de Peças Aplicadas em O.S. (CMV O.S.)
+  let osPartsCost = 0;
+  for (const os of serviceOrders) {
+    for (const item of os.items) {
+      osPartsCost += item.quantity * (item.unitCost || 0);
+    }
+  }
+
+  // 5. Custos Terceirizados / Insumos de O.S.
+  const osCustomCosts = serviceOrders.reduce((acc, o) => acc + o.cost, 0);
+
+  // 6. Taxas de Cartão cobradas (PDV + O.S.)
+  const pdvCardFees = sales.reduce((acc, s) => acc + s.cardFee, 0);
+  const osCardFees = serviceOrders.reduce((acc, o) => acc + o.cardFee, 0);
+  const totalCardFees = transactions
+    .filter(t => t.type === "EXPENSE" && t.category === "Taxas e Tarifas")
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  // 7. Custos Fixos / Despesas Gerais Operacionais (Luz, Aluguel, Prolabore, etc.)
+  const fixedCosts = transactions
+    .filter(t => t.type === "EXPENSE" && t.category !== "Custo de Produtos" && t.category !== "Custo de Serviços" && t.category !== "Taxas e Tarifas")
+    .reduce((acc, t) => acc + t.amount, 0);
 
   // ==========================================
-  // CÁLCULOS DETALHADOS COMPARATIVOS: MÊS A e MÊS B
+  // FILTRAGEM DINÂMICA DE EXIBIÇÃO NO DASHBOARD (VARIA COM O SELETOR DE ÁREA)
   // ==========================================
-  const calcMonthData = (monthSales: any[], monthTxs: any[]) => {
-    const revenue = monthSales.reduce((acc, s) => acc + s.totalAmount, 0);
+  let displayRevenue = pdvRevenue + osRevenue;
+  let displayCMV = pdvCMV + osPartsCost;
+  let displayOSCost = osCustomCosts;
+  let displayExpense = fixedCosts + totalCardFees; // Todas as despesas gerais e taxas
+  
+  if (area === "pdv") {
+    displayRevenue = pdvRevenue;
+    displayCMV = pdvCMV;
+    displayOSCost = 0;
+    displayExpense = pdvCardFees; // Apenas taxas do PDV para análise isolada
+  } else if (area === "os") {
+    displayRevenue = osRevenue;
+    displayCMV = osPartsCost;
+    displayOSCost = osCustomCosts;
+    displayExpense = osCardFees; // Apenas taxas da O.S.
+  } else if (area === "aparelhos") {
+    // Apenas vendas de celulares/smartphones direct sales no PDV
+    const phoneSales = sales.reduce((acc, s) => acc + s.items.filter(item => isPhone(item.product?.name || "")).reduce((sum, item) => sum + item.quantity * item.unitPrice, 0), 0);
+    const phoneCost = sales.reduce((acc, s) => acc + s.items.filter(item => isPhone(item.product?.name || "")).reduce((sum, item) => sum + item.quantity * (item.unitCost || item.product?.cost || 0), 0), 0);
+    displayRevenue = phoneSales;
+    displayCMV = phoneCost;
+    displayOSCost = 0;
+    displayExpense = 0; // Sem despesa de taxa direta mapeada
+  }
+
+  const netProfit = displayRevenue - displayCMV - displayOSCost - displayExpense;
+  const totalStockCost = allStocks.reduce((sum, s) => sum + s.quantity * (s.product?.cost || 0), 0);
+
+  // ==========================================
+  // CÁLCULOS DETALHADOS COMPARATIVOS: MÊS A e MÊS B (INCLUINDO O.S.)
+  // ==========================================
+  const calcMonthData = (monthSales: any[], monthTxs: any[], monthOS: any[]) => {
+    const pdvRev = monthSales.reduce((acc, s) => acc + s.totalAmount, 0);
+    const osRev = monthOS.reduce((acc, o) => acc + o.totalAmount, 0);
+    const revenue = pdvRev + osRev;
     
     // Taxas de Cartão cobradas (Salvas em EXPENSE categoria "Taxas e Tarifas")
     const cardFees = monthTxs
@@ -222,11 +321,27 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
 
     // Despesas Gerais Operacionais (Luz, Aluguel, etc.)
     const generalExpenses = monthTxs
-      .filter(t => t.type === "EXPENSE" && t.category !== "Custo de Produtos" && t.category !== "Taxas e Tarifas")
+      .filter(t => t.type === "EXPENSE" && t.category !== "Custo de Produtos" && t.category !== "Custo de Serviços" && t.category !== "Taxas e Tarifas")
       .reduce((acc, t) => acc + t.amount, 0);
 
-    let cmv = 0;
-    let qtyItems = 0;
+    // CMV PDV
+    let cmvPDV = 0;
+    for (const sale of monthSales) {
+      for (const item of sale.items) {
+        const cost = item.unitCost || item.product?.cost || 0;
+        cmvPDV += item.quantity * cost;
+      }
+    }
+
+    // CMV O.S. (Peças)
+    const osParts = monthOS.reduce((acc, o) => acc + o.items.reduce((sum: number, item: any) => sum + item.quantity * (item.unitCost || 0), 0), 0);
+    // Custo Terceirizado
+    const osCustom = monthOS.reduce((acc, o) => acc + o.cost, 0);
+    const totalCosts = cmvPDV + osParts + osCustom;
+
+    const netProfit = revenue - totalCosts - cardFees - generalExpenses;
+
+    let qtyItems = monthSales.reduce((acc, s) => acc + s.items.reduce((sum: number, item: any) => sum + item.quantity, 0), 0);
     let phonesQty = 0;
     let phonesRevenue = 0;
     let accessoriesQty = 0;
@@ -234,10 +349,6 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
 
     for (const sale of monthSales) {
       for (const item of sale.items) {
-        qtyItems += item.quantity;
-        const cost = item.unitCost || item.product?.cost || 0;
-        cmv += item.quantity * cost;
-
         if (item.product) {
           const isPh = isPhone(item.product.name);
           if (isPh) {
@@ -251,31 +362,26 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       }
     }
 
-    const netProfit = revenue - cmv - cardFees - generalExpenses;
+    // Adiciona O.S. na receita de serviços
+    const servicesRevenue = monthOS.reduce((acc, o) => acc + o.totalAmount, 0);
 
     return {
       revenue,
       cardFees,
       generalExpenses,
-      cmv,
+      cmv: totalCosts,
       netProfit,
       qtyItems,
       phonesQty,
       phonesRevenue,
       accessoriesQty,
-      accessoriesRevenue
+      accessoriesRevenue,
+      servicesRevenue
     };
   };
 
-  const isPhone = (name: string) => {
-    const n = name.toLowerCase();
-    return n.includes("celular") || n.includes("telefone") || n.includes("aparelho") ||
-           n.includes("iphone") || n.includes("samsung") || n.includes("xiaomi") ||
-           n.includes("motorola") || n.includes("redmi") || n.includes("smartphone");
-  };
-
-  const dataA = calcMonthData(salesA, txsA);
-  const dataB = calcMonthData(salesB, txsB);
+  const dataA = calcMonthData(salesA, txsA, serviceOrdersA);
+  const dataB = calcMonthData(salesB, txsB, serviceOrdersB);
 
   // Vendas por Funcionário (Ranking com detalhamento de itens)
   const sellerStats = allUsers
@@ -337,6 +443,16 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     filteredTransactions = filteredTransactions.filter(t => t.type === "INCOME");
   } else if (typeFilter === "expense") {
     filteredTransactions = filteredTransactions.filter(t => t.type === "EXPENSE");
+  }
+
+  // Filtragem por busca textual ("Lupa na Pesquisa")
+  if (query) {
+    const qUpper = query.toUpperCase();
+    filteredTransactions = filteredTransactions.filter(t => 
+      t.description.toUpperCase().includes(qUpper) || 
+      (t.category?.toUpperCase() || "").includes(qUpper) ||
+      (t.user && t.user.name.toUpperCase().includes(qUpper))
+    );
   }
 
   // Filtrar por Método de Pagamento
@@ -438,15 +554,68 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     .slice(0, 10);
 
   const topProfitableProducts = Object.values(productPerformance)
-    .sort((a, b) => b.profit - a.profit)
-    .slice(0, 10);
-
-  // Estilos de aba ativa
-  const tabClass = (tabName: string) => `px-5 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-    activeTab === tabName 
-      ? "bg-cyan-600 text-white shadow-lg shadow-cyan-500/20" 
-      : "bg-slate-800/40 text-slate-400 hover:bg-slate-800 hover:text-white"
-  }`;
+      const tabsList = [
+    {
+      id: "dashboard",
+      label: "Dashboard & Lucro",
+      icon: DollarSign,
+      color: "text-emerald-400",
+      inactiveIconColor: "text-slate-500 group-hover:text-emerald-400",
+      activeStyle: "bg-emerald-600 border-emerald-500 shadow-[0_4px_20px_rgba(16,185,129,0.45)] text-white font-black",
+      hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-emerald-500/40 hover:bg-emerald-600/15 hover:text-emerald-300",
+      moneyClass: "text-emerald-400 font-extrabold"
+    },
+    {
+      id: "extrato",
+      label: "Extrato de Movimentações",
+      icon: FileText,
+      color: "text-sky-400",
+      inactiveIconColor: "text-slate-500 group-hover:text-sky-400",
+      activeStyle: "bg-sky-600 border-sky-500 shadow-[0_4px_20px_rgba(14,165,233,0.45)] text-white font-black",
+      hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-sky-500/40 hover:bg-sky-600/15 hover:text-sky-300",
+      moneyClass: "text-emerald-400 font-extrabold"
+    },
+    {
+      id: "graficos",
+      label: "Gráficos de Vendas",
+      icon: TrendingUp,
+      color: "text-indigo-400",
+      inactiveIconColor: "text-slate-500 group-hover:text-indigo-400",
+      activeStyle: "bg-indigo-600 border-indigo-500 shadow-[0_4px_20px_rgba(99,102,241,0.45)] text-white font-black",
+      hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-indigo-500/40 hover:bg-indigo-600/15 hover:text-indigo-300",
+      moneyClass: "text-emerald-400 font-extrabold"
+    },
+    {
+      id: "comparativo",
+      label: "Comparativo Mensal",
+      icon: Percent,
+      color: "text-purple-400",
+      inactiveIconColor: "text-slate-500 group-hover:text-purple-400",
+      activeStyle: "bg-purple-600 border-purple-500 shadow-[0_4px_20px_rgba(168,85,247,0.45)] text-white font-black",
+      hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-purple-500/40 hover:bg-purple-600/15 hover:text-purple-300",
+      moneyClass: "text-emerald-400 font-extrabold"
+    },
+    {
+      id: "vendedores",
+      label: "Vendas por Funcionário",
+      icon: Users,
+      color: "text-amber-400",
+      inactiveIconColor: "text-slate-500 group-hover:text-amber-400",
+      activeStyle: "bg-amber-600 border-amber-500 shadow-[0_4px_20px_rgba(245,158,11,0.45)] text-white font-black",
+      hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-amber-500/40 hover:bg-amber-600/15 hover:text-amber-300",
+      moneyClass: "text-emerald-400 font-extrabold"
+    },
+    {
+      id: "rankings",
+      label: "Rankings de Produtos",
+      icon: Award,
+      color: "text-rose-400",
+      inactiveIconColor: "text-slate-500 group-hover:text-rose-400",
+      activeStyle: "bg-rose-600 border-rose-500 shadow-[0_4px_20px_rgba(244,63,94,0.45)] text-white font-black",
+      hoverStyle: "bg-slate-900/40 border-slate-800 text-slate-400 hover:border-rose-500/40 hover:bg-rose-600/15 hover:text-rose-300",
+      moneyClass: "text-emerald-400 font-extrabold"
+    }
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -459,20 +628,37 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
           BARRA DE FILTROS DE DATA (DASHBOARD)
           ========================================== */}
       {activeTab !== "comparativo" && (
-        <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-md animate-in fade-in duration-200">
+        <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-md space-y-4 animate-in fade-in duration-200">
           <form method="GET" action="/financeiro" className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             <input type="hidden" name="tab" value={activeTab} />
+            <input type="hidden" name="area" value={area} />
             
-            <div className="flex flex-wrap gap-2 items-center w-full lg:w-auto">
+            {/* Filtro de Período */}
+            <div className="flex flex-wrap gap-2.5 items-center w-full lg:w-auto">
               <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 mr-2">
                 <Calendar className="w-3.5 h-3.5 text-cyan-400" />
                 Período:
               </span>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=hoje`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${periodo === "hoje" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-slate-800 text-slate-400 border border-slate-700/50 hover:bg-slate-700"}`}>Hoje</Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=7dias`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${periodo === "7dias" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-slate-800 text-slate-400 border border-slate-700/50 hover:bg-slate-700"}`}>Últimos 7 dias</Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=mes`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${periodo === "mes" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-slate-800 text-slate-400 border border-slate-700/50 hover:bg-slate-700"}`}>Mês Atual</Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=ano`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${periodo === "ano" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-slate-800 text-slate-400 border border-slate-700/50 hover:bg-slate-700"}`}>Ano Atual</Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=personalizado&startDate=${startDateStr}&endDate=${endDateStr}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${periodo === "personalizado" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-slate-800 text-slate-400 border border-slate-700/50 hover:bg-slate-700"}`}>Personalizado</Link>
+              <Link href={`/financeiro?tab=${activeTab}&periodo=hoje&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "hoje" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "hoje" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                Hoje
+              </Link>
+              <Link href={`/financeiro?tab=${activeTab}&periodo=7dias&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "7dias" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "7dias" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                Últimos 7 dias
+              </Link>
+              <Link href={`/financeiro?tab=${activeTab}&periodo=mes&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "mes" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "mes" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                Mês Atual
+              </Link>
+              <Link href={`/financeiro?tab=${activeTab}&periodo=ano&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "ano" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "ano" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                Ano Atual
+              </Link>
+              <Link href={`/financeiro?tab=${activeTab}&periodo=personalizado&startDate=${startDateStr}&endDate=${endDateStr}&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "personalizado" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "personalizado" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                Personalizado
+              </Link>
             </div>
 
             {periodo === "personalizado" && (
@@ -492,41 +678,88 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                   required
                   className="bg-[#0a0f1c] border border-slate-700 rounded-lg text-xs px-2.5 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500" 
                 />
-                <Button type="submit" size="sm" className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-1.5 px-4 rounded-lg text-xs">Filtrar</Button>
+                <Button type="submit" size="sm" className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-1.5 px-4 rounded-lg text-xs shadow-md shadow-cyan-500/10">Filtrar</Button>
               </div>
             )}
           </form>
+
+          {/* Filtro de Área de Visualização */}
+          <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-slate-800/80">
+            <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 mr-2">
+              <Filter className="w-3.5 h-3.5 text-cyan-400" />
+              Filtrar por Área:
+            </span>
+            <div className="flex gap-2 flex-wrap">
+              <Link 
+                href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=all`} 
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "all" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${area === "all" ? "bg-cyan-400" : "bg-slate-600"}`}></span>
+                Tudo Consolidado (Geral)
+              </Link>
+              <Link 
+                href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=pdv`} 
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "pdv" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${area === "pdv" ? "bg-emerald-400" : "bg-slate-600"}`}></span>
+                Apenas Vendas PDV
+              </Link>
+              <Link 
+                href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=os`} 
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "os" ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${area === "os" ? "bg-amber-400" : "bg-slate-600"}`}></span>
+                Apenas Ordens de Serviço
+              </Link>
+              <Link 
+                href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=aparelhos`} 
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "aparelhos" ? "bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-[0_0_10px_rgba(14,165,233,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${area === "aparelhos" ? "bg-sky-400" : "bg-slate-600"}`}></span>
+                Apenas Venda de Celulares
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ==========================================
           BARRA DE NAVEGAÇÃO DE ABAS (TABS)
           ========================================== */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-800/80 pb-3">
-        <Link href={`/financeiro?tab=dashboard&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}`} className={tabClass("dashboard")}>
-          <DollarSign className="w-4.5 h-4.5" />
-          Dashboard & Lucro
-        </Link>
-        <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}`} className={tabClass("extrato")}>
-          <FileText className="w-4.5 h-4.5" />
-          Extrato de Movimentações
-        </Link>
-        <Link href={`/financeiro?tab=graficos&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}`} className={tabClass("graficos")}>
-          <TrendingUp className="w-4.5 h-4.5" />
-          Gráficos de Vendas
-        </Link>
-        <Link href={`/financeiro?tab=comparativo&mesA=${mesA}&anoA=${anoA}&mesB=${mesB}&anoB=${anoB}`} className={tabClass("comparativo")}>
-          <Percent className="w-4.5 h-4.5" />
-          Comparativo Mensal
-        </Link>
-        <Link href={`/financeiro?tab=vendedores&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}`} className={tabClass("vendedores")}>
-          <Users className="w-4.5 h-4.5" />
-          Vendas por Funcionário
-        </Link>
-        <Link href={`/financeiro?tab=rankings&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}`} className={tabClass("rankings")}>
-          <Award className="w-4.5 h-4.5" />
-          Rankings de Produtos
-        </Link>
+      <div className="flex flex-wrap gap-3 border-b border-slate-800/80 pb-4">
+        {tabsList.map((tab) => {
+          const TabIcon = tab.icon;
+          const isActive = activeTab === tab.id;
+          
+          let targetHref = `/financeiro?tab=${tab.id}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=${area}`;
+          if (tab.id === "comparativo") {
+            targetHref = `/financeiro?tab=comparativo&mesA=${mesA}&anoA=${anoA}&mesB=${mesB}&anoB=${anoB}&area=${area}`;
+          }
+          
+          return (
+            <Link
+              key={tab.id}
+              href={targetHref}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-3 border group ${
+                isActive ? tab.activeStyle : tab.hoverStyle
+              }`}
+            >
+              {/* Glassmorphism Icon + Mini Dinheiro ($) */}
+              <div 
+                className={`p-1.5 rounded-lg flex items-center gap-1 transition-all ${
+                  isActive ? "bg-black/35 border border-black/15" : "bg-slate-900/50 border border-transparent"
+                }`}
+              >
+                <TabIcon className={`w-4 h-4 transition-all duration-350 group-hover:scale-110 ${isActive ? "text-white" : tab.color}`} />
+                <span className={`text-[11px] font-black ${isActive ? "text-white" : tab.moneyClass} drop-shadow-[0_0_4px_rgba(52,211,153,0.4)]`}>$</span>
+              </div>
+              
+              <span className={`transition-colors duration-300 ${isActive ? "text-white font-black drop-shadow-sm" : "text-slate-400 group-hover:text-white"}`}>
+                {tab.label}
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
       {/* ==========================================
@@ -535,44 +768,44 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       {activeTab === "dashboard" && (
         <div className="space-y-6 animate-in fade-in duration-300">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl shadow-md flex flex-col justify-between h-36">
+            <div className="card-glow p-6 rounded-2xl flex flex-col justify-between h-36">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
                   <ArrowUpRight className="w-5 h-5" />
                 </div>
                 <h3 className="text-slate-400 font-semibold text-sm">Faturamento Bruto</h3>
               </div>
-              <p className="text-3xl font-black text-emerald-400">R$ {totalRevenue.toFixed(2)}</p>
+              <p className="text-3xl font-black val-positive">R$ {displayRevenue.toFixed(2)}</p>
             </div>
             
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl shadow-md flex flex-col justify-between h-36">
+            <div className="card-glow p-6 rounded-2xl flex flex-col justify-between h-36">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-rose-500/10 text-rose-400 rounded-xl">
                   <ArrowDownRight className="w-5 h-5" />
                 </div>
                 <h3 className="text-slate-400 font-semibold text-sm">Despesas e Taxas</h3>
               </div>
-              <p className="text-3xl font-black text-rose-400">R$ {totalExpense.toFixed(2)}</p>
+              <p className="text-3xl font-black val-negative">R$ {displayExpense.toFixed(2)}</p>
             </div>
 
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl shadow-md flex flex-col justify-between h-36">
+            <div className="card-glow p-6 rounded-2xl flex flex-col justify-between h-36">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
                   <ShoppingBag className="w-5 h-5" />
                 </div>
-                <h3 className="text-slate-400 font-semibold text-sm">Custo Mercadoria Vendida (CMV)</h3>
+                <h3 className="text-slate-400 font-semibold text-sm">Custo Mercadoria (CMV)</h3>
               </div>
-              <p className="text-3xl font-black text-amber-400">R$ {totalCMV.toFixed(2)}</p>
+              <p className="text-3xl font-black val-cost font-mono">R$ {displayCMV.toFixed(2)}</p>
             </div>
 
-            <div className={`bg-[#0f172a] border p-6 rounded-2xl shadow-md flex flex-col justify-between h-36 ${netProfit >= 0 ? "border-emerald-500/20" : "border-rose-500/20"}`}>
+            <div className={`card-glow p-6 rounded-2xl flex flex-col justify-between h-36 ${netProfit >= 0 ? "border-emerald-500/20" : "border-rose-500/20"}`}>
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-xl ${netProfit >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
                   <DollarSign className="w-5 h-5" />
                 </div>
-                <h3 className="text-slate-400 font-semibold text-sm">Lucro Líquido / Real</h3>
+                <h3 className="text-slate-400 font-semibold text-sm">Lucro Líquido Real</h3>
               </div>
-              <p className={`text-3xl font-black ${netProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              <p className={`text-3xl font-black ${netProfit >= 0 ? "val-positive" : "val-negative"}`}>
                 R$ {netProfit.toFixed(2)}
               </p>
             </div>
@@ -582,24 +815,48 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
             {/* Demonstração de Resultado */}
             <div className="lg:col-span-2 bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white mb-2">Demonstração de Resultado Simplificada</h3>
-                <p className="text-slate-400 text-xs font-semibold mb-6">Fórmula contábil do Lucro Real adotada.</p>
+                <h3 className="text-lg font-bold text-white mb-2">Demonstração de Resultado Consolida</h3>
+                <p className="text-slate-400 text-xs font-semibold mb-6">Detalhamento contábil de receitas, custos e taxas integrados.</p>
                 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-sm font-semibold py-1.5 border-b border-slate-800 text-slate-300">
-                    <span>(+) Receita Operacional (Faturamento)</span>
-                    <span className="text-emerald-400">+ R$ {totalRevenue.toFixed(2)}</span>
+                <div className="space-y-3.5">
+                  <div className="flex justify-between items-center text-xs font-bold py-1 border-b border-slate-800/60 text-slate-400 uppercase tracking-wider">
+                    <span>Receitas do Período</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm font-semibold py-1.5 border-b border-slate-800 text-slate-300">
-                    <span>(-) Custo das Mercadorias Vendidas (CMV)</span>
-                    <span className="text-amber-400">- R$ {totalCMV.toFixed(2)}</span>
+                  <div className="flex justify-between items-center text-sm font-semibold py-1 border-b border-slate-800 text-slate-300">
+                    <span>(+) Faturamento de Vendas (PDV)</span>
+                    <span className="text-slate-400 font-mono">R$ {pdvRevenue.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm font-semibold py-1.5 border-b border-slate-800 text-slate-300">
-                    <span>(-) Despesas Operacionais e Taxas de Cartão</span>
-                    <span className="text-rose-400">- R$ {totalExpense.toFixed(2)}</span>
+                  <div className="flex justify-between items-center text-sm font-semibold py-1 border-b border-slate-800 text-slate-300">
+                    <span>(+) Faturamento de Serviços (O.S.)</span>
+                    <span className="text-slate-400 font-mono">R$ {osRevenue.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-lg font-black pt-3 text-white">
-                    <span>(=) Lucro Real do Período</span>
+
+                  <div className="flex justify-between items-center text-xs font-bold py-1 border-b border-slate-800/60 text-slate-400 uppercase tracking-wider pt-2">
+                    <span>Custos e Despesas Operacionais</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-semibold py-1 border-b border-slate-800 text-slate-300">
+                    <span>(-) Custo das Peças/Produtos PDV (CMV)</span>
+                    <span className="text-amber-500 font-mono">- R$ {pdvCMV.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-semibold py-1 border-b border-slate-800 text-slate-300">
+                    <span>(-) Custo de Peças aplicadas em O.S. (CMV)</span>
+                    <span className="text-amber-500 font-mono">- R$ {osPartsCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-semibold py-1 border-b border-slate-800 text-slate-300">
+                    <span>(-) Custo Terceirizado / Adicional de O.S.</span>
+                    <span className="text-amber-500 font-mono">- R$ {osCustomCosts.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-semibold py-1 border-b border-slate-800 text-slate-300">
+                    <span>(-) Custos Fixos / Despesas Operacionais</span>
+                    <span className="text-rose-400 font-mono">- R$ {fixedCosts.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-semibold py-1 border-b border-slate-800 text-slate-300">
+                    <span>(-) Taxas de Cartão</span>
+                    <span className="text-rose-400 font-mono">- R$ {totalCardFees.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-lg font-black pt-3 text-white border-t border-slate-700">
+                    <span>(=) Lucro Líquido Real</span>
                     <span className={netProfit >= 0 ? "text-emerald-400" : "text-rose-400"}>
                       R$ {netProfit.toFixed(2)}
                     </span>
@@ -608,10 +865,10 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
               </div>
 
               <div className="mt-8 bg-cyan-950/20 border border-cyan-500/10 rounded-2xl p-4 flex items-center gap-3">
-                <Percent className="w-8 h-8 text-cyan-400" />
+                <Percent className="w-8 h-8 text-cyan-400 animate-pulse" />
                 <div className="text-xs text-slate-400 leading-relaxed font-semibold">
-                  <span className="font-bold text-white block">Margem de Lucro do Período</span>
-                  A margem de lucro operacional líquida é de <span className="text-cyan-400 font-bold">{totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : "0"}%</span> das vendas brutas realizadas.
+                  <span className="font-bold text-white block">Margem de Lucro Consolidada</span>
+                  Sua margem de lucro líquido consolidada neste período é de <span className="text-cyan-400 font-bold">{displayRevenue > 0 ? ((netProfit / displayRevenue) * 100).toFixed(1) : "0"}%</span> das receitas brutas operacionais.
                 </div>
               </div>
             </div>
@@ -646,7 +903,31 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
           ========================================== */}
       {activeTab === "extrato" && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl shadow-md space-y-4">
+          <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-2xl shadow-md space-y-6">
+            
+            {/* Campo de Pesquisa com Lupa ("Lupa na Pesquisa") */}
+            <form method="GET" action="/financeiro" className="w-full max-w-md relative">
+              <input type="hidden" name="tab" value="extrato" />
+              <input type="hidden" name="periodo" value={periodo} />
+              {startDateStr && <input type="hidden" name="startDate" value={startDateStr} />}
+              {endDateStr && <input type="hidden" name="endDate" value={endDateStr} />}
+              {sellerId && <input type="hidden" name="sellerId" value={sellerId} />}
+              <input type="hidden" name="type" value={typeFilter} />
+              <input type="hidden" name="payment" value={paymentFilter} />
+              <input type="hidden" name="category" value={categoryFilter} />
+              <input type="hidden" name="area" value={area} />
+              
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)] group-focus-within:text-cyan-300 group-focus-within:scale-110 transition-all duration-300" />
+                <input
+                  type="text"
+                  name="q"
+                  defaultValue={query}
+                  placeholder="Pesquisar lançamentos... (ex: Venda #10, sinal, pix)"
+                  className="w-full bg-[#0a0f1c] border border-slate-700 focus:border-cyan-400 rounded-xl pl-11 pr-4 py-2 text-xs text-white input-glow font-semibold"
+                />
+              </div>
+            </form>
             {/* Linha 1: Tipo & Funcionário */}
             <div className="flex flex-wrap gap-4 items-center justify-between">
               <div className="flex flex-wrap gap-4 items-center">
@@ -913,107 +1194,69 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       )}
 
       {/* ==========================================
-          TELA 3: GRÁFICOS E ANÁLISES (APARELHOS VS ACESSÓRIOS)
+          TELA 3: GRÁFICOS E ANÁLISES (APARELHOS VS ACESSÓRIOS VS SERVIÇOS)
           ========================================== */}
       {activeTab === "graficos" && (
         <div className="space-y-6 animate-in fade-in duration-300">
+          
+          {/* Grid de Gráficos Pizza/Donut SVG Interativos */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* Gráfico 1: Faturamento (R$) */}
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white mb-2">Divisão de Faturamento (R$)</h3>
-                <p className="text-slate-400 text-xs font-semibold mb-6">Comparativo financeiro bruto entre Aparelhos e Acessórios.</p>
-                
-                {/* Visual SVG Bars */}
-                <div className="space-y-6 pt-4">
-                  <div>
-                    <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded bg-cyan-500 block"></span>
-                        Aparelhos Telefônicos
-                      </span>
-                      <span>R$ {phonesRevenue.toFixed(2)}</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-6 rounded-lg overflow-hidden relative border border-slate-700/30">
-                      <div 
-                        className="bg-gradient-to-r from-cyan-600 to-cyan-400 h-full transition-all duration-1000"
-                        style={{ width: `${phonesRevenue + accessoriesRevenue > 0 ? (phonesRevenue / (phonesRevenue + accessoriesRevenue)) * 100 : 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
+            {/* Gráfico 1: Performance por Faturamento Bruto */}
+            <PieChart
+              title="Performance por Faturamento Bruto (Valor Bruto)"
+              isCurrency={true}
+              data={[
+                { label: "Venda de Aparelhos", value: phonesRevenue, color: "#00d2ff" }, // Cyan
+                { label: "Venda de Acessórios", value: accessoriesRevenue, color: "#a855f7" }, // Purple
+                { label: "Serviços e O.S.", value: osRevenue, color: "#f97316" }, // Neon Orange
+              ]}
+            />
 
-                  <div>
-                    <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded bg-purple-500 block"></span>
-                        Acessórios e Outros
-                      </span>
-                      <span>R$ {accessoriesRevenue.toFixed(2)}</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-6 rounded-lg overflow-hidden relative border border-slate-700/30">
-                      <div 
-                        className="bg-gradient-to-r from-purple-600 to-purple-400 h-full transition-all duration-1000"
-                        style={{ width: `${phonesRevenue + accessoriesRevenue > 0 ? (accessoriesRevenue / (phonesRevenue + accessoriesRevenue)) * 100 : 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Gráfico 2: Performance por Lucro Líquido Real */}
+            {(() => {
+              const phoneSalesCostVal = sales.reduce((acc, s) => acc + s.items.filter(item => isPhone(item.product?.name || "")).reduce((sum, item) => sum + item.quantity * (item.unitCost || item.product?.cost || 0), 0), 0);
+              const accessorySalesCostVal = sales.reduce((acc, s) => acc + s.items.filter(item => !isPhone(item.product?.name || "")).reduce((sum, item) => sum + item.quantity * (item.unitCost || item.product?.cost || 0), 0), 0);
+              
+              const phoneProfit = Math.max(0, phonesRevenue - phoneSalesCostVal);
+              const accessoryProfit = Math.max(0, accessoriesRevenue - accessorySalesCostVal);
+              const osProfit = Math.max(0, osRevenue - osPartsCost - osCustomCosts);
 
-              <div className="pt-8 border-t border-slate-800/80 flex justify-between text-xs text-slate-400 font-bold mt-6">
-                <span>Total Faturado no Período</span>
-                <span className="text-emerald-400">R$ {(phonesRevenue + accessoriesRevenue).toFixed(2)}</span>
-              </div>
-            </div>
+              return (
+                <PieChart
+                  title="Performance por Lucro Líquido Real (Lucro Líquido)"
+                  isCurrency={true}
+                  data={[
+                    { label: "Venda de Aparelhos", value: phoneProfit, color: "#10b981" }, // Emerald
+                    { label: "Venda de Acessórios", value: accessoryProfit, color: "#c084fc" }, // Light Purple
+                    { label: "Serviços e O.S.", value: osProfit, color: "#eab308" }, // Amber
+                  ]}
+                />
+              );
+            })()}
 
-            {/* Gráfico 2: Quantidade Vendida (un) */}
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white mb-2">Unidades Físicas Vendidas (un)</h3>
-                <p className="text-slate-400 text-xs font-semibold mb-6">Volume absoluto de itens entregues no período.</p>
-                
-                {/* Visual SVG Bars */}
-                <div className="space-y-6 pt-4">
-                  <div>
-                    <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded bg-cyan-500 block"></span>
-                        Aparelhos Telefônicos
-                      </span>
-                      <span>{phonesQty} un</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-6 rounded-lg overflow-hidden relative border border-slate-700/30">
-                      <div 
-                        className="bg-gradient-to-r from-cyan-600 to-cyan-400 h-full transition-all duration-1000"
-                        style={{ width: `${phonesQty + accessoriesQty > 0 ? (phonesQty / (phonesQty + accessoriesQty)) * 100 : 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
+            {/* Gráfico 3: Distribuição de Custos & Custos Fixos */}
+            <PieChart
+              title="Distribuição Contábil de Custos e Despesas"
+              isCurrency={true}
+              data={[
+                { label: "CMV de Produtos (PDV)", value: pdvCMV, color: "#f43f5e" }, // Rose
+                { label: "CMV de Peças (O.S.)", value: osPartsCost, color: "#fb7185" }, // Light Rose
+                { label: "Serviços Terceirizados (O.S.)", value: osCustomCosts, color: "#f59e0b" }, // Orange/Amber
+                { label: "Taxas de Cartão", value: totalCardFees, color: "#6366f1" }, // Indigo
+                { label: "Custos Fixos / Operacionais", value: fixedCosts, color: "#ec4899" }, // Pink
+              ]}
+            />
 
-                  <div>
-                    <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded bg-purple-500 block"></span>
-                        Acessórios e Outros
-                      </span>
-                      <span>{accessoriesQty} un</span>
-                    </div>
-                    <div className="w-full bg-slate-800 h-6 rounded-lg overflow-hidden relative border border-slate-700/30">
-                      <div 
-                        className="bg-gradient-to-r from-purple-600 to-purple-400 h-full transition-all duration-1000"
-                        style={{ width: `${phonesQty + accessoriesQty > 0 ? (accessoriesQty / (phonesQty + accessoriesQty)) * 100 : 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-8 border-t border-slate-800/80 flex justify-between text-xs text-slate-400 font-bold mt-6">
-                <span>Total de Itens Vendidos</span>
-                <span className="text-cyan-400">{phonesQty + accessoriesQty} un</span>
-              </div>
-            </div>
+            {/* Gráfico 4: Unidades Físicas Vendidas */}
+            <PieChart
+              title="Volume Físico de Itens Vendidos (Vendas PDV)"
+              valueSuffix=" un"
+              data={[
+                { label: "Celulares e Aparelhos", value: phonesQty, color: "#06b6d4" },
+                { label: "Acessórios e Outros", value: accessoriesQty, color: "#8b5cf6" },
+              ]}
+            />
 
           </div>
         </div>

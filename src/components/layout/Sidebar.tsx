@@ -21,22 +21,22 @@ function SidebarContent({ role }: SidebarProps) {
   const isMestre = role === "SUPER_ADMIN" || pathname.startsWith("/mestre");
 
   const normalLinks = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-400", bgHover: "hover:bg-blue-500/10" },
-    { href: "/clientes", label: "Clientes", icon: Contact, color: "text-pink-400", bgHover: "hover:bg-pink-500/10" },
-    { href: "/os", label: "Ordens de Serviço", icon: ClipboardList, color: "text-indigo-400", bgHover: "hover:bg-indigo-500/10" },
-    { href: "/usuarios", label: "Usuários", icon: Users, color: "text-purple-400", bgHover: "hover:bg-purple-500/10" },
-    { href: "/estoque", label: "Estoque", icon: Package, color: "text-orange-400", bgHover: "hover:bg-orange-500/10" },
-    { href: "/caixa", label: "Caixa", icon: Inbox, color: "text-yellow-400", bgHover: "hover:bg-yellow-500/10" },
-    { href: "/pdv", label: "PDV & Vendas", icon: ShoppingCart, color: "text-green-400", bgHover: "hover:bg-green-500/10" },
-    { href: "/financeiro", label: "Financeiro", icon: DollarSign, color: "text-emerald-400", bgHover: "hover:bg-emerald-500/10" },
-    { href: "/configuracao", label: "Configurações", icon: Settings, color: "text-cyan-400", bgHover: "hover:bg-cyan-500/10" },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-400", hoverColor: "group-hover:text-blue-400", bgHover: "hover:bg-blue-500/10", shadowColor: "rgba(96,165,250,0.3)" },
+    { href: "/clientes", label: "Clientes", icon: Contact, color: "text-cyan-400", hoverColor: "group-hover:text-cyan-400", bgHover: "hover:bg-cyan-500/10", shadowColor: "rgba(34,211,238,0.3)" },
+    { href: "/os", label: "Ordens de Serviço", icon: ClipboardList, color: "text-amber-500", hoverColor: "group-hover:text-amber-500", bgHover: "hover:bg-amber-500/10", shadowColor: "rgba(245,158,11,0.3)" },
+    { href: "/usuarios", label: "Usuários", icon: Users, color: "text-purple-400", hoverColor: "group-hover:text-purple-400", bgHover: "hover:bg-purple-500/10", shadowColor: "rgba(192,132,252,0.3)" },
+    { href: "/estoque", label: "Estoque", icon: Package, color: "text-orange-400", hoverColor: "group-hover:text-orange-400", bgHover: "hover:bg-orange-500/10", shadowColor: "rgba(251,146,60,0.3)" },
+    { href: "/caixa", label: "Caixa", icon: Inbox, color: "text-yellow-400", hoverColor: "group-hover:text-yellow-400", bgHover: "hover:bg-yellow-500/10", shadowColor: "rgba(250,204,21,0.3)" },
+    { href: "/pdv", label: "PDV & Vendas", icon: ShoppingCart, color: "text-emerald-400", hoverColor: "group-hover:text-emerald-400", bgHover: "hover:bg-emerald-500/10", shadowColor: "rgba(52,211,153,0.3)" },
+    { href: "/financeiro", label: "Financeiro", icon: DollarSign, color: "text-green-400", hoverColor: "group-hover:text-green-400", bgHover: "hover:bg-green-500/10", shadowColor: "rgba(74,222,128,0.3)" },
+    { href: "/configuracao", label: "Configurações", icon: Settings, color: "text-slate-400", hoverColor: "group-hover:text-slate-400", bgHover: "hover:bg-slate-500/10", shadowColor: "rgba(148,163,184,0.3)" },
   ];
 
   const adminLinks = [
-    { href: "/mestre/empresas?tab=empresas", tabId: "empresas", label: "Clientes & Licenças", icon: Building, color: "text-cyan-400", bgHover: "hover:bg-cyan-500/10" },
-    { href: "/mestre/empresas?tab=solicitacoes", tabId: "solicitacoes", label: "Solicitações de Adesão", icon: Coins, color: "text-emerald-400", bgHover: "hover:bg-emerald-500/10" },
-    { href: "/mestre/empresas?tab=config", tabId: "config", label: "Customização SaaS", icon: Settings, color: "text-blue-400", bgHover: "hover:bg-blue-500/10" },
-    { href: "/mestre/empresas?tab=pagamentos", tabId: "pagamentos", label: "Integração Bancária", icon: CreditCard, color: "text-cyan-400", bgHover: "hover:bg-cyan-500/10" },
+    { href: "/mestre/empresas?tab=empresas", tabId: "empresas", label: "Clientes & Licenças", icon: Building, color: "text-cyan-400", hoverColor: "group-hover:text-cyan-400", bgHover: "hover:bg-cyan-500/10", shadowColor: "rgba(34,211,238,0.3)" },
+    { href: "/mestre/empresas?tab=solicitacoes", tabId: "solicitacoes", label: "Solicitações de Adesão", icon: Coins, color: "text-emerald-400", hoverColor: "group-hover:text-emerald-400", bgHover: "hover:bg-emerald-500/10", shadowColor: "rgba(52,211,153,0.3)" },
+    { href: "/mestre/empresas?tab=config", tabId: "config", label: "Customização SaaS", icon: Settings, color: "text-blue-400", hoverColor: "group-hover:text-blue-400", bgHover: "hover:bg-blue-500/10", shadowColor: "rgba(96,165,250,0.3)" },
+    { href: "/mestre/empresas?tab=pagamentos", tabId: "pagamentos", label: "Integração Bancária", icon: CreditCard, color: "text-cyan-400", hoverColor: "group-hover:text-cyan-400", bgHover: "hover:bg-cyan-500/10", shadowColor: "rgba(34,211,238,0.3)" },
   ];
 
   const links = isMestre ? adminLinks : normalLinks;
@@ -67,16 +67,33 @@ function SidebarContent({ role }: SidebarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 font-semibold ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 font-semibold group relative overflow-hidden ${
                 isActive 
                   ? "bg-[#162032] text-white shadow-sm border border-slate-700/50" 
                   : `text-slate-400 hover:text-slate-200 ${link.bgHover}`
               }`}
             >
-              <div className={`p-1.5 rounded-lg transition-colors ${isActive ? "bg-slate-800/80 shadow-inner" : ""}`}>
-                <Icon className={`w-5 h-5 ${isActive ? link.color : "text-slate-500 group-hover:" + link.color}`} />
+              {/* Glassmorphism Icon Circle */}
+              <div 
+                className={`p-2 rounded-full transition-all duration-300 flex items-center justify-center ${
+                  isActive 
+                    ? "bg-slate-900/60 border border-slate-700/50" 
+                    : "bg-slate-900/20 border border-transparent group-hover:bg-slate-850 group-hover:border-slate-700/30"
+                }`}
+                style={isActive ? { boxShadow: `0 0 10px ${link.shadowColor}` } : {}}
+              >
+                <Icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? link.color : `text-slate-500 ${link.hoverColor}`}`} />
               </div>
-              {link.label}
+              
+              <span className="relative z-10 transition-colors duration-300">{link.label}</span>
+              
+              {/* Left active line indicator */}
+              {isActive && (
+                <div 
+                  className="absolute left-0 top-1/4 w-[3px] h-1/2 rounded-r-full"
+                  style={{ backgroundColor: link.shadowColor.replace("0.3", "1") }}
+                />
+              )}
             </Link>
           );
         })}

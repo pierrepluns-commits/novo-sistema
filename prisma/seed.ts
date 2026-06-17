@@ -48,7 +48,7 @@ async function main() {
     data: {
       name: 'Super Admin',
       email: 'pierrepluns@gmail.com',
-      password_hash: 'senha123', // Em prod usar bcrypt
+      password_hash: '#Obliviate25', // Em prod usar bcrypt
       role: 'SUPER_ADMIN',
       permissions: JSON.stringify(['ALL'])
     }

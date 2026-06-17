@@ -12,6 +12,7 @@ import {
 import { 
   updateServiceOrderAction, 
   updateServiceOrderTechnicalAction,
+  updateServiceOrderCostAction,
   addPartToServiceOrderAction,
   removePartFromServiceOrderAction,
   finishAndBillServiceOrderAction,
@@ -58,6 +59,7 @@ interface ServiceOrder {
   prepayment: number;
   discount: number;
   totalAmount: number;
+  cost: number; // Custo terceirizado / insumos adicionais
   paymentMethod: string | null;
   installments: number;
   cardFee: number;
@@ -66,6 +68,7 @@ interface ServiceOrder {
   warrantyStatus: string;
   warrantyExpiresAt: Date | null;
   createdAt: Date;
+  updatedAt: Date;
   client: Client;
   items: ServiceOrderItem[];
 }
@@ -191,6 +194,21 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
         setGlobalMessage({ text: res.error, type: "error" });
       } else {
         setGlobalMessage({ text: "Laudo técnico e valores atualizados!", type: "success" });
+        router.refresh();
+      }
+    });
+  };
+
+  // --- O.S. Cost Launcher State & Action ---
+  const [osCost, setOsCost] = useState(String(os.cost || 0));
+  const handleUpdateCost = async () => {
+    setGlobalMessage(null);
+    startTransition(async () => {
+      const res = await updateServiceOrderCostAction(os.id, parseFloat(osCost) || 0);
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+      } else {
+        setGlobalMessage({ text: "Custo da O.S. atualizado com sucesso!", type: "success" });
         router.refresh();
       }
     });
@@ -656,6 +674,42 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
               </div>
             </div>
 
+            {/* O.S. Cost section (Sempre editável!) */}
+            <div className="p-4 bg-[#0a0f1d] border border-slate-800 rounded-2xl space-y-4">
+              <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                <span>Custos Terceirizados / Insumos da O.S. (Lançável Depois)</span>
+              </h4>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Preencha aqui o custo de serviços terceirizados, laboratórios de apoio ou insumos adicionais aplicados nesta assistência. Este valor é somado ao custo das peças e deduzido do faturamento no painel financeiro para calcular o lucro líquido real.
+              </p>
+              <div className="flex flex-col md:flex-row gap-4 items-end max-w-md">
+                <div className="space-y-1.5 flex-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    Custo Terceirizado / Adicional (R$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={osCost}
+                      onChange={(e) => setOsCost(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-white"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleUpdateCost}
+                  disabled={isPending}
+                  className="bg-amber-600 hover:bg-amber-500 hover:shadow-lg hover:shadow-amber-500/20 text-white font-bold px-5 py-2.5 rounded-xl text-xs shrink-0 cursor-pointer active:scale-95 transition-all"
+                >
+                  {isPending ? "Salvando..." : "Salvar Custo"}
+                </Button>
+              </div>
+            </div>
+
             {/* Technical Diagnostic Report */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
@@ -884,52 +938,94 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Receipt / Invoice calculations */}
-              <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-                <h4 className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-2">Valores</h4>
-                
-                <div className="space-y-2.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Mão de Obra (Serviço):</span>
-                    <span className="font-mono text-white font-semibold">R$ {servicePriceNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Peças Aplicadas:</span>
-                    <span className="font-mono text-white font-semibold">R$ {partsPriceNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                  </div>
-
-                  {prepaymentNum > 0 && (
-                    <div className="flex justify-between text-emerald-400 font-bold">
-                      <span>Sinal / Adiantamento:</span>
-                      <span className="font-mono">- R$ {prepaymentNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+              <div className="bg-[#090e1a] border border-slate-800 rounded-2xl p-6 space-y-6">
+                <div>
+                  <h4 className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800/80 pb-2">Resumo Financeiro (Valor Final)</h4>
+                  
+                  <div className="space-y-2.5 text-xs mt-3">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Mão de Obra (Serviço):</span>
+                      <span className="font-mono text-slate-200 font-semibold">R$ {servicePriceNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                     </div>
-                  )}
 
-                  {/* Discount option */}
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-800/80">
-                    <span className="text-slate-500">Desconto Concedido:</span>
-                    <div className="relative max-w-[120px]">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-[10px]">R$</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={billDiscount}
-                        disabled={os.status === "DELIVERED"}
-                        onChange={(e) => setBillDiscount(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-2 py-1 text-[11px] font-mono text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-                      />
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Peças Aplicadas (Preço de Venda):</span>
+                      <span className="font-mono text-slate-200 font-semibold">R$ {partsPriceNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    </div>
+
+                    {prepaymentNum > 0 && (
+                      <div className="flex justify-between text-emerald-400 font-bold">
+                        <span>Sinal / Adiantamento:</span>
+                        <span className="font-mono">- R$ {prepaymentNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+
+                    {/* Discount option */}
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-800/60">
+                      <span className="text-slate-400">Desconto Concedido:</span>
+                      <div className="relative max-w-[120px]">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-[10px]">R$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={billDiscount}
+                          disabled={os.status === "DELIVERED"}
+                          onChange={(e) => setBillDiscount(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-2 py-1 text-[11px] font-mono text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between border-t border-slate-800 pt-3 text-sm">
+                      <span className="text-slate-300 font-bold uppercase tracking-wider">Total Cobrado (Valor Final):</span>
+                      <span className="font-mono text-white font-extrabold text-sm">R$ {finalTotalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div className="flex justify-between border-t border-slate-800 pt-3 text-base">
+                      <span className="text-indigo-400 font-extrabold uppercase tracking-wider">Saldo a Receber:</span>
+                      <span className="font-mono text-indigo-400 font-black">R$ {remainderToPay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex justify-between border-t border-slate-800 pt-3 text-sm">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Total Final:</span>
-                    <span className="font-mono text-white font-extrabold text-sm">R$ {finalTotalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                  </div>
+                {/* DETALHAMENTO DE CUSTOS E LUCRO REAL */}
+                <div className="border-t border-slate-800 pt-4 space-y-3">
+                  <h4 className="font-bold text-amber-500 uppercase tracking-wider text-xs border-b border-slate-800/80 pb-2">Detalhamento Contábil (Custo & Lucro)</h4>
+                  
+                  <div className="space-y-2.5 text-xs mt-3">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Custo das Peças (Estoque):</span>
+                      <span className="font-mono val-cost text-xs">R$ {((os as any).items || []).reduce((sum: number, item: any) => sum + (item.quantity * (item.unitCost || 0)), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    </div>
 
-                  <div className="flex justify-between border-t border-slate-800 pt-3 text-base">
-                    <span className="text-indigo-400 font-extrabold uppercase tracking-wider">Saldo a Receber:</span>
-                    <span className="font-mono text-indigo-400 font-black">R$ {remainderToPay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Custo Terceirizado / Adicional:</span>
+                      <span className="font-mono val-cost text-xs">R$ {(parseFloat(osCost) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div className="flex justify-between border-t border-slate-800/60 pt-2 text-xs font-bold text-slate-300">
+                      <span>Custo Total Consolidado:</span>
+                      <span className="font-mono val-cost text-xs">
+                        R$ {(((os as any).items || []).reduce((sum: number, item: any) => sum + (item.quantity * (item.unitCost || 0)), 0) + (parseFloat(osCost) || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Lucro Líquido Real da OS */}
+                    {(() => {
+                      const totalCost = ((os as any).items || []).reduce((sum: number, item: any) => sum + (item.quantity * (item.unitCost || 0)), 0) + (parseFloat(osCost) || 0);
+                      const profit = finalTotalAmount - totalCost;
+                      const profitMargin = finalTotalAmount > 0 ? (profit / finalTotalAmount) * 100 : 0;
+                      return (
+                        <div className={`flex justify-between border-t border-slate-800 pt-3 text-sm font-bold p-2.5 rounded-xl ${profit >= 0 ? "bg-emerald-500/10 border border-emerald-500/10" : "bg-rose-500/10 border border-rose-500/10"}`}>
+                          <span>Lucro Líquido Real da O.S.:</span>
+                          <span className={`font-mono font-black text-right ${profit >= 0 ? "val-positive" : "val-negative"}`}>
+                            R$ {profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            <span className="text-[10px] block font-semibold">Margem: {profitMargin.toFixed(1)}%</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

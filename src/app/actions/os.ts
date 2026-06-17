@@ -190,6 +190,76 @@ export async function updateServiceOrderTechnicalAction(
   }
 }
 
+// 3.1 Update O.S. Custom/Outsourced Cost (Pode lançar depois!)
+export async function updateServiceOrderCostAction(osId: string, cost: number) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  try {
+    const os = await prisma.serviceOrder.findUnique({
+      where: { id: osId, companyId: session.companyId },
+    });
+
+    if (!os) return { error: "O.S. não encontrada." };
+
+    // 1. Atualiza no banco de dados da O.S.
+    await prisma.serviceOrder.update({
+      where: { id: osId },
+      data: { cost: cost || 0 },
+    });
+
+    // 2. Se a O.S. estiver DELIVERED (Faturada), sincroniza retroativamente com o Livro Caixa
+    if (os.status === "DELIVERED") {
+      const register = await prisma.cashRegister.findFirst({
+        where: { unitId: os.unitId, status: "OPEN" },
+      });
+
+      const existingTx = await prisma.financialTransaction.findFirst({
+        where: {
+          companyId: session.companyId!,
+          description: { startsWith: `Custo Terceirizado O.S. #${os.osNumber}` },
+        },
+      });
+
+      if (existingTx) {
+        if (cost > 0) {
+          await prisma.financialTransaction.update({
+            where: { id: existingTx.id },
+            data: { amount: cost },
+          });
+        } else {
+          await prisma.financialTransaction.delete({
+            where: { id: existingTx.id },
+          });
+        }
+      } else if (cost > 0) {
+        await prisma.financialTransaction.create({
+          data: {
+            type: "EXPENSE",
+            companyId: session.companyId!,
+            unitId: os.unitId,
+            amount: cost,
+            description: `Custo Terceirizado O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
+            category: "Custo de Serviços",
+            transactionDate: new Date(),
+            userId: session.userId,
+            cashRegisterId: register ? register.id : null,
+          },
+        });
+      }
+    }
+
+    revalidatePath(`/os/editar/${osId}`);
+    revalidatePath("/os");
+    revalidatePath("/financeiro");
+    return { success: true };
+  } catch (error: any) {
+    return { error: "Erro ao atualizar custo da O.S.: " + error.message };
+  }
+}
+
 // 4. Add Part/Piece from Stock to O.S. Budget
 export async function addPartToServiceOrderAction(
   osId: string,
@@ -440,6 +510,23 @@ export async function finishAndBillServiceOrderAction(
             amount: totalPartsCost,
             description: `Custo Peças O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Produtos",
+            transactionDate: new Date(),
+            userId: session.userId,
+            cashRegisterId: register.id,
+          },
+        });
+      }
+
+      // 4.1 Registrar custo terceirizado / insumos adicionais se houver
+      if (os.cost > 0 && register) {
+        await tx.financialTransaction.create({
+          data: {
+            type: "EXPENSE",
+            companyId: session.companyId!,
+            unitId: os.unitId,
+            amount: os.cost,
+            description: `Custo Terceirizado O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
+            category: "Custo de Serviços",
             transactionDate: new Date(),
             userId: session.userId,
             cashRegisterId: register.id,

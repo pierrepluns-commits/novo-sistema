@@ -300,6 +300,7 @@ model ServiceOrder {
   discount          Float     @default(0)
   prepayment        Float     @default(0) // Sinal de entrada
   totalAmount       Float     @default(0) // (servicePrice + partsPrice - discount)
+  cost              Float     @default(0) // Custo adicional / terceirizado da O.S. (lançável depois)
   paymentMethod     String?   // Dinheiro, PIX, Cartão
   installments      Int       @default(1)
   cardFee           Float     @default(0)

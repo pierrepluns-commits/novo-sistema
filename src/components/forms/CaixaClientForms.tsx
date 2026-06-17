@@ -429,24 +429,9 @@ interface ServiceOrdersShiftListProps {
 }
 
 export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftListProps) {
-  const [commissionRate, setCommissionRate] = useState<number>(50); // Default 50%
-  const [customRate, setCustomRate] = useState<string>("");
-
-  const handleRateChange = (rate: number) => {
-    setCommissionRate(rate);
-    setCustomRate("");
-  };
-
-  const handleCustomRateChange = (val: string) => {
-    setCustomRate(val);
-    const parsed = parseInt(val) || 0;
-    setCommissionRate(parsed);
-  };
-
   // Calculate overall shift totals
   let totalBilled = 0;
   let totalPartsCost = 0;
-  let totalOutsourcedCost = 0;
   let totalCommission = 0;
 
   const processedOrders = serviceOrders.map((os) => {
@@ -462,12 +447,10 @@ export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftList
     // Billed amount to client = totalAmount (which is servicePrice - discount)
     const billed = os.totalAmount;
     const partsCost = os.partsPrice || 0;
-    const outsourcedCost = os.cost || 0;
-    const commission = os.servicePrice * (commissionRate / 100);
+    const commission = os.cost || 0;
 
     totalBilled += billed;
     totalPartsCost += partsCost;
-    totalOutsourcedCost += outsourcedCost;
     totalCommission += commission;
 
     return {
@@ -475,13 +458,11 @@ export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftList
       techName,
       billed,
       partsCost,
-      outsourcedCost,
       commission,
     };
   });
 
-  const totalCost = totalPartsCost + totalOutsourcedCost;
-  const netProfitTotal = totalBilled - totalCost;
+  const netProfitTotal = totalBilled - totalPartsCost - totalCommission;
 
   return (
     <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
@@ -492,36 +473,6 @@ export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftList
             Resumo de Serviços e Comissões (Turno Atual)
           </h3>
           <p className="text-xs text-slate-400 mt-1">Ordens de serviço finalizadas e entregues no caixa atual</p>
-        </div>
-
-        {/* Commission selector */}
-        <div className="flex items-center gap-2 bg-[#0a0f1c] p-1.5 rounded-lg border border-slate-800 shrink-0">
-          <span className="text-[10px] uppercase font-bold text-slate-500 px-2">Comissão:</span>
-          {[50, 40, 30, 0].map((rate) => (
-            <button
-              key={rate}
-              onClick={() => handleRateChange(rate)}
-              className={`px-2 py-1 text-xs font-bold rounded transition-all ${
-                commissionRate === rate && !customRate
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {rate}%
-            </button>
-          ))}
-          <div className="relative w-14 ml-1">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={customRate}
-              onChange={(e) => handleCustomRateChange(e.target.value)}
-              placeholder="Outro"
-              className="w-full bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-center text-white focus:outline-none focus:border-indigo-500 placeholder:text-slate-600 font-bold"
-            />
-            {customRate && <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400 font-bold">%</span>}
-          </div>
         </div>
       </div>
 
@@ -534,13 +485,13 @@ export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftList
           </div>
         </div>
         <div className="space-y-1">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Custos (Peças+Terc)</span>
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Peças</span>
           <div className="text-base font-extrabold text-amber-500 font-mono">
-            R$ {totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            R$ {totalPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </div>
         </div>
         <div className="space-y-1">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Comissões ({commissionRate}%)</span>
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Comissões</span>
           <div className="text-base font-extrabold text-rose-400 font-mono">
             R$ {totalCommission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </div>
@@ -608,16 +559,16 @@ export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftList
                     <span className="font-mono text-white font-bold">R$ {os.billed.toFixed(2)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Custo (Peça+Terc):</span>
-                    <span className="font-mono text-amber-500 font-bold">R$ {(os.partsCost + os.outsourcedCost).toFixed(2)}</span>
+                    <span className="text-slate-500 block">Custo Peças:</span>
+                    <span className="font-mono text-amber-500 font-bold">R$ {os.partsCost.toFixed(2)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Comissão ({commissionRate}%):</span>
+                    <span className="text-slate-500 block">Comissão:</span>
                     <span className="font-mono text-rose-400 font-bold">R$ {os.commission.toFixed(2)}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block">Lucro Líquido:</span>
-                    <span className="font-mono text-emerald-400 font-black">R$ {(os.billed - os.partsCost - os.outsourcedCost).toFixed(2)}</span>
+                    <span className="font-mono text-emerald-400 font-black">R$ {(os.billed - os.partsCost - os.commission).toFixed(2)}</span>
                   </div>
                 </div>
               </div>

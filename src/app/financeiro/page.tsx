@@ -30,7 +30,6 @@ interface PageProps {
     category?: string;
     area?: string; // area filter: all, pdv, os, aparelhos
     q?: string;
-    commissionRate?: string;
   }>;
 }
 
@@ -631,7 +630,6 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
   // ==========================================
   // CÁLCULO DE COMISSÕES POR TÉCNICO
   // ==========================================
-  const techCommissionRate = params.commissionRate ? parseInt(params.commissionRate) : 50;
 
   const techStats: Record<string, {
     name: string;
@@ -677,7 +675,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     }
 
     const servicePriceVal = os.servicePrice || 0;
-    const commissionVal = servicePriceVal * (techCommissionRate / 100);
+    const commissionVal = os.cost || 0;
 
     techStats[techName].count += 1;
     techStats[techName].totalBilled += os.totalAmount;
@@ -1773,43 +1771,6 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                   Relatório detalhado de comissões calculadas sobre a mão de obra de O.S. finalizadas no período
                 </p>
               </div>
-
-              {/* Commission selector */}
-              <div className="flex flex-wrap items-center gap-2 bg-[#0a0f1c] p-2 rounded-xl border border-slate-800 shrink-0">
-                <span className="text-[10px] uppercase font-bold text-slate-500 px-2">Comissão Padrão:</span>
-                {[50, 40, 30, 0].map((rate) => (
-                  <Link
-                    key={rate}
-                    href={`/financeiro?tab=comissoes&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=${area}&commissionRate=${rate}`}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                      techCommissionRate === rate
-                        ? "bg-indigo-600 border-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.25)]"
-                        : "bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-850"
-                    }`}
-                  >
-                    {rate}%
-                  </Link>
-                ))}
-                <form method="GET" action="/financeiro" className="flex items-center ml-2 gap-1.5">
-                  <input type="hidden" name="tab" value="comissoes" />
-                  <input type="hidden" name="periodo" value={periodo} />
-                  <input type="hidden" name="startDate" value={startDateStr} />
-                  <input type="hidden" name="endDate" value={endDateStr} />
-                  <input type="hidden" name="area" value={area} />
-                  <div className="relative w-16">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      name="commissionRate"
-                      defaultValue={techCommissionRate}
-                      placeholder="Outro"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-center text-white focus:outline-none focus:border-indigo-500 font-bold"
-                    />
-                  </div>
-                  <button type="submit" className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg text-white font-bold transition-colors">Ir</button>
-                </form>
-              </div>
             </div>
 
             {/* List of technicians */}
@@ -1847,7 +1808,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                             <th className="pb-2">Data Encerram.</th>
                             <th className="pb-2">Status</th>
                             <th className="pb-2 text-right">Mão de Obra</th>
-                            <th className="pb-2 text-right">Comissão ({techCommissionRate}%)</th>
+                            <th className="pb-2 text-right">Comissão</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-850/80">

@@ -69,7 +69,6 @@ export default function CaixaPrintClient({ register, sales, serviceOrders }: Cai
   // OS calculations
   let totalOSBilled = 0;
   let totalOSPartsCost = 0;
-  let totalOSOutsourcedCost = 0;
   let totalOSCommission = 0;
 
   const processedOS = serviceOrders.map((os) => {
@@ -82,12 +81,10 @@ export default function CaixaPrintClient({ register, sales, serviceOrders }: Cai
     const techName = checklistObj.technicianName || os.user?.name || "Sem Técnico";
     const billed = os.totalAmount;
     const partsCost = os.partsPrice || 0;
-    const outsourcedCost = os.cost || 0;
-    const commission = os.servicePrice * 0.5; // default 50% commission
+    const commission = os.cost || 0;
 
     totalOSBilled += billed;
     totalOSPartsCost += partsCost;
-    totalOSOutsourcedCost += outsourcedCost;
     totalOSCommission += commission;
 
     return {
@@ -95,7 +92,6 @@ export default function CaixaPrintClient({ register, sales, serviceOrders }: Cai
       techName,
       billed,
       partsCost,
-      outsourcedCost,
       commission,
     };
   });
@@ -277,8 +273,8 @@ export default function CaixaPrintClient({ register, sales, serviceOrders }: Cai
                 <th className="py-1">Técnico</th>
                 <th className="py-1">Pagam.</th>
                 <th className="py-1 text-right font-mono">Cobrado</th>
-                <th className="py-1 text-right font-mono">Custo</th>
-                <th className="py-1 text-right font-mono">Comissão (50%)</th>
+                <th className="py-1 text-right font-mono">Custo Peças</th>
+                <th className="py-1 text-right font-mono">Comissão</th>
                 <th className="py-1 text-right font-mono">Lucro</th>
               </tr>
             </thead>
@@ -293,10 +289,10 @@ export default function CaixaPrintClient({ register, sales, serviceOrders }: Cai
                     {os.paymentMethod === "CASH" ? "DINHEIRO" : os.paymentMethod === "PIX" ? "PIX" : os.paymentMethod === "CREDIT_CARD" ? "CRÉDITO" : "DÉBITO"}
                   </td>
                   <td className="py-1.5 text-right font-mono">R$ {os.billed.toFixed(2)}</td>
-                  <td className="py-1.5 text-right font-mono">R$ {(os.partsCost + os.outsourcedCost).toFixed(2)}</td>
+                  <td className="py-1.5 text-right font-mono">R$ {os.partsCost.toFixed(2)}</td>
                   <td className="py-1.5 text-right font-mono">R$ {os.commission.toFixed(2)}</td>
                   <td className="py-1.5 text-right font-mono font-bold text-emerald-400 print:text-black">
-                    R$ {(os.billed - os.partsCost - os.outsourcedCost).toFixed(2)}
+                    R$ {(os.billed - os.partsCost - os.commission).toFixed(2)}
                   </td>
                 </tr>
               ))}
@@ -311,10 +307,10 @@ export default function CaixaPrintClient({ register, sales, serviceOrders }: Cai
                 <tr className="border-t border-slate-800 print:border-black font-extrabold text-[10px]">
                   <td colSpan={5} className="py-2">TOTAIS DE SERVIÇOS:</td>
                   <td className="py-2 text-right font-mono">R$ {totalOSBilled.toFixed(2)}</td>
-                  <td className="py-2 text-right font-mono">R$ {(totalOSPartsCost + totalOSOutsourcedCost).toFixed(2)}</td>
+                  <td className="py-2 text-right font-mono">R$ {totalOSPartsCost.toFixed(2)}</td>
                   <td className="py-2 text-right font-mono">R$ {totalOSCommission.toFixed(2)}</td>
                   <td className="py-2 text-right font-mono text-emerald-400 print:text-black">
-                    R$ {(totalOSBilled - totalOSPartsCost - totalOSOutsourcedCost).toFixed(2)}
+                    R$ {(totalOSBilled - totalOSPartsCost - totalOSCommission).toFixed(2)}
                   </td>
                 </tr>
               </tfoot>

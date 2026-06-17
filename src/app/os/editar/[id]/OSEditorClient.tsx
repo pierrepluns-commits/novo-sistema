@@ -730,15 +730,15 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
             <div className="p-4 bg-[#0a0f1d] border border-slate-800 rounded-2xl space-y-4">
               <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
-                <span>Custos Terceirizados / Insumos da O.S. (Lançável Depois)</span>
+                <span>Comissão do Técnico (Lançável Depois)</span>
               </h4>
               <p className="text-[10px] text-slate-400 leading-relaxed">
-                Preencha aqui o custo de serviços terceirizados, laboratórios de apoio ou insumos adicionais aplicados nesta assistência. Este valor é somado ao custo das peças e deduzido do faturamento no painel financeiro para calcular o lucro líquido real.
+                Preencha aqui o valor da comissão a ser paga ao técnico responsável por esta assistência. Este valor é agrupado nos relatórios de comissões e deduzido do faturamento no painel financeiro para calcular o lucro líquido real.
               </p>
               <div className="flex flex-col md:flex-row gap-4 items-end max-w-md">
                 <div className="space-y-1.5 flex-1">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Custo Terceirizado / Adicional (R$)
+                    Comissão do Técnico (R$)
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
@@ -757,7 +757,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                   disabled={isPending}
                   className="bg-amber-600 hover:bg-amber-500 hover:shadow-lg hover:shadow-amber-500/20 text-white font-bold px-5 py-2.5 rounded-xl text-xs shrink-0 cursor-pointer active:scale-95 transition-all"
                 >
-                  {isPending ? "Salvando..." : "Salvar Custo"}
+                  {isPending ? "Salvando..." : "Salvar Comissão"}
                 </Button>
               </div>
             </div>
@@ -990,7 +990,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Custo Terceirizado / Adicional:</span>
+                    <span className="text-slate-400">Comissão do Técnico:</span>
                     <span className="font-mono text-slate-200 font-semibold">
                       R$ {outsourcedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </span>

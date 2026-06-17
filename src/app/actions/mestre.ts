@@ -381,3 +381,27 @@ export async function updateCompanyLicenseAction(
     return { error: "Erro ao atualizar licença: " + error.message };
   }
 }
+
+// 8. Delete a company and all cascade relations
+export async function deleteCompanyAction(companyId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "SUPER_ADMIN") {
+    return { error: "Acesso restrito ao Mestre." };
+  }
+
+  if (!companyId) {
+    return { error: "ID da empresa é obrigatório." };
+  }
+
+  try {
+    await prisma.company.delete({
+      where: { id: companyId }
+    });
+
+    revalidatePath("/mestre/empresas");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao excluir empresa:", error);
+    return { error: "Erro ao excluir empresa: " + error.message };
+  }
+}

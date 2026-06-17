@@ -69,6 +69,9 @@ export default function ClientesPage() {
     email: "",
     cep: "",
     address: "",
+    street: "",
+    number: "",
+    complement: "",
   });
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -80,12 +83,6 @@ export default function ClientesPage() {
 
   const fetchClients = async (query: string) => {
     startTransition(async () => {
-      // searchClientsAction returns Client[] or similar
-      // If query is empty, we still want to fetch clients. Let's make sure it returns all or matching.
-      // Wait, let's see searchClientsAction implementation in client.ts. It returns [] if query is empty.
-      // Ah! We can search for all clients if we use an empty query or just pass a blank space " ".
-      // Let's pass query or blank space, or we can write a helper to list all clients or fallback.
-      // Let's call searchClientsAction with the query.
       const res = await searchClientsAction(query || " ");
       setClients(res as any);
     });
@@ -110,6 +107,9 @@ export default function ClientesPage() {
       email: "",
       cep: "",
       address: "",
+      street: "",
+      number: "",
+      complement: "",
     });
     setFormError("");
     setIsModalOpen(true);
@@ -117,6 +117,28 @@ export default function ClientesPage() {
 
   const openEditModal = (client: Client) => {
     setEditingClient(client);
+    
+    // Parse address back to street, number, and complement
+    let street = "";
+    let number = "";
+    let complement = "";
+    if (client.address) {
+      const commaIndex = client.address.indexOf(",");
+      if (commaIndex !== -1) {
+        street = client.address.substring(0, commaIndex).trim();
+        const rest = client.address.substring(commaIndex + 1).trim();
+        const dashIndex = rest.indexOf("-");
+        if (dashIndex !== -1) {
+          number = rest.substring(0, dashIndex).trim();
+          complement = rest.substring(dashIndex + 1).trim();
+        } else {
+          number = rest.trim();
+        }
+      } else {
+        street = client.address;
+      }
+    }
+
     setFormData({
       name: client.name,
       document: client.document || "",
@@ -124,6 +146,9 @@ export default function ClientesPage() {
       email: client.email || "",
       cep: client.cep || "",
       address: client.address || "",
+      street,
+      number,
+      complement,
     });
     setFormError("");
     setIsModalOpen(true);
@@ -144,8 +169,19 @@ export default function ClientesPage() {
 
     setIsSaving(true);
     try {
+      // Build full address string
+      const street = formData.street.trim();
+      const number = formData.number.trim() || "S/N";
+      const complement = formData.complement.trim();
+      const fullAddress = street ? `${street}, ${number}${complement ? ` - ${complement}` : ""}` : "";
+
+      const updatedFormData = {
+        ...formData,
+        address: fullAddress,
+      };
+
       const data = new FormData();
-      Object.entries(formData).forEach(([key, val]) => {
+      Object.entries(updatedFormData).forEach(([key, val]) => {
         data.append(key, val);
       });
 
@@ -556,7 +592,7 @@ export default function ClientesPage() {
                 />
               </div>
 
-              {/* CEP and Address Grid */}
+              {/* CEP and Rua Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* CEP */}
                 <div className="space-y-1.5">
@@ -573,17 +609,59 @@ export default function ClientesPage() {
                   />
                 </div>
 
-                {/* Address */}
+                {/* Rua (Street) */}
                 <div className="md:col-span-2 space-y-1.5">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Endereço Completo
+                    Logradouro / Rua
                   </label>
                   <input 
                     type="text"
-                    name="address"
-                    value={formData.address}
+                    name="street"
+                    value={formData.street}
                     onChange={handleInputChange}
-                    placeholder="Rua, número, bairro..."
+                    placeholder="Rua, Avenida, Travessa..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Número e Complemento Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Número */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      Número
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, number: "S/N" }))}
+                      className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider"
+                    >
+                      Sem número
+                    </button>
+                  </div>
+                  <input 
+                    type="text"
+                    name="number"
+                    value={formData.number}
+                    onChange={handleInputChange}
+                    placeholder="Ex: 123 ou S/N"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors font-mono"
+                  />
+                </div>
+
+                {/* Complemento */}
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Complemento
+                  </label>
+                  <input 
+                    type="text"
+                    name="complement"
+                    value={formData.complement}
+                    onChange={handleInputChange}
+                    placeholder="Ex: Apto 42, Bloco B, Fundos..."
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   />
                 </div>

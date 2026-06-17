@@ -14,7 +14,8 @@ import {
   approveLicenseRequest, 
   updateSystemConfig,
   updateCompanyLicenseAction,
-  updatePaymentConfig
+  updatePaymentConfig,
+  deleteCompanyAction
 } from "@/app/actions/mestre";
 
 interface MestreDashboardClientProps {
@@ -166,6 +167,26 @@ export function MestreDashboardClient({
       toast.error("Falha ao atualizar: " + err.message);
     } finally {
       setUpdatingLicense(false);
+    }
+  };
+
+  const handleDeleteCompany = async (companyId: string, companyName: string) => {
+    if (!window.confirm(`ATENÇÃO: Tem certeza absoluta que deseja excluir a empresa "${companyName}"?\n\nEsta ação é PERMANENTE e apagará todos os dados, usuários, lojas, vendas e históricos vinculados a ela.`)) {
+      return;
+    }
+
+    try {
+      const res = await deleteCompanyAction(companyId);
+      if (res.error) {
+        toast.error("Erro ao excluir empresa: " + res.error);
+        return;
+      }
+      
+      toast.success(`Empresa "${companyName}" excluída com sucesso!`);
+      // Update local state
+      setCompanies(prev => prev.filter(c => c.id !== companyId));
+    } catch (err: any) {
+      toast.error("Falha ao excluir empresa: " + err.message);
     }
   };
 
@@ -562,6 +583,13 @@ export function MestreDashboardClient({
                         >
                           <Edit2 className="w-3.5 h-3.5 text-emerald-400" />
                           Editar Licença
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCompany(c.id, c.name)}
+                          className="bg-red-950/30 hover:bg-red-900/40 text-red-400 hover:text-red-350 border border-red-900/30 hover:border-red-800/50 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash className="w-3.5 h-3.5 text-red-400" />
+                          Excluir Empresa
                         </button>
                       </div>
                     </td>

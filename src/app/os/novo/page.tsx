@@ -50,7 +50,7 @@ export default function NovaOSPage() {
 
   // Quick Create Client Modal
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
-  const [clientForm, setClientForm] = useState({ name: "", phone: "", document: "" });
+  const [clientForm, setClientForm] = useState({ name: "", phone: "", document: "", cep: "", street: "", number: "", complement: "" });
   const [clientFormError, setClientFormError] = useState("");
   const [savingClient, setSavingClient] = useState(false);
 
@@ -143,10 +143,18 @@ export default function NovaOSPage() {
 
     setSavingClient(true);
     try {
+      // Build full address string
+      const street = clientForm.street.trim();
+      const number = clientForm.number.trim() || "S/N";
+      const complement = clientForm.complement.trim();
+      const fullAddress = street ? `${street}, ${number}${complement ? ` - ${complement}` : ""}` : "";
+
       const data = new FormData();
       data.append("name", clientForm.name);
       data.append("phone", clientForm.phone);
       data.append("document", clientForm.document);
+      data.append("cep", clientForm.cep);
+      data.append("address", fullAddress);
 
       const res = await createClientAction(data);
       if (res.error) {
@@ -155,7 +163,7 @@ export default function NovaOSPage() {
         setSelectedClient(res.client as any);
         setClientQuery(res.client.name);
         setIsClientModalOpen(false);
-        setClientForm({ name: "", phone: "", document: "" });
+        setClientForm({ name: "", phone: "", document: "", cep: "", street: "", number: "", complement: "" });
       }
     } catch (err: any) {
       setClientFormError(err.message);
@@ -712,6 +720,71 @@ export default function NovaOSPage() {
                   onChange={(e) => setClientForm((prev) => ({ ...prev, document: e.target.value }))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-mono"
                 />
+              </div>
+
+              {/* CEP and Rua */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    CEP
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="00000-000"
+                    value={clientForm.cep}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, cep: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    Rua / Logradouro
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nome da rua..."
+                    value={clientForm.street}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, street: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Número and Complemento */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                      Número
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setClientForm((prev) => ({ ...prev, number: "S/N" }))}
+                      className="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider font-sans cursor-pointer"
+                    >
+                      Sem número
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Ex: 123 ou S/N"
+                    value={clientForm.number}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, number: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                    Complemento
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Apto 12, Bloco C..."
+                    value={clientForm.complement}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, complement: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 border-t border-slate-800 pt-6 mt-4">

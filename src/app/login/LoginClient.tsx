@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { loginUser, recoverPassword } from "../actions/auth";
 import toast from "react-hot-toast";
-import { Sparkles, Mail, Lock, Building2, X, Check, Copy } from "lucide-react";
+import { Sparkles, Mail, Lock, Building2, X, Check, Copy, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 interface LoginClientProps {
@@ -21,6 +21,7 @@ export function LoginClient({ systemConfig }: LoginClientProps) {
     tempPassword: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const appName = systemConfig?.appName || "CyberERP";
   const primaryColor = systemConfig?.primaryColor || "#00f3ff";
@@ -37,8 +38,17 @@ export function LoginClient({ systemConfig }: LoginClientProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
     const formData = new FormData(e.currentTarget);
+    const email = (formData.get("email") as string || "").trim();
+
+    // Validar e-mail com regex simples
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Por favor, insira um e-mail válido.");
+      return;
+    }
+
+    setLoading(true);
     const res = await loginUser(formData);
     
     if (res?.error) {
@@ -150,11 +160,18 @@ export function LoginClient({ systemConfig }: LoginClientProps) {
               <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input 
                 name="password" 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 required
-                className="w-full pl-10 pr-4 py-3 bg-[#040814] border border-slate-800 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all text-white font-semibold text-sm"
+                className="w-full pl-10 pr-12 py-3 bg-[#040814] border border-slate-800 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all text-white font-semibold text-sm"
                 placeholder="••••••••"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
           

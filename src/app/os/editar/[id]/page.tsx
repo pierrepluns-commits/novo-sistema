@@ -71,11 +71,18 @@ export default async function EditOSPage({ params }: PageProps) {
     quantity: item.quantity,
   }));
 
+  // 4. Fetch all users for technician assignment
+  const users = await prisma.user.findMany({
+    where: { companyId: session.companyId },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <OSEditorClient 
       os={os as any} 
       clients={clients as any} 
       availableParts={availableParts} 
+      users={users as any}
     />
   );
 }

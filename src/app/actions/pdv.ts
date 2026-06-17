@@ -46,6 +46,24 @@ export async function createSale(
     throw new Error("CAIXA_FECHADO");
   }
 
+  // Verificar se há algum caixa aberto de dias anteriores
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const openYesterdayRegister = await prisma.cashRegister.findFirst({
+    where: {
+      unitId: selectedUnitId,
+      status: "OPEN",
+      openedAt: {
+        lt: startOfToday
+      }
+    }
+  });
+
+  if (openYesterdayRegister) {
+    throw new Error("CAIXA_DIA_ANTERIOR_ABERTO");
+  }
+
   const saleDate = customDate ? new Date(customDate) : new Date();
 
   const sale = await prisma.$transaction(async (tx) => {

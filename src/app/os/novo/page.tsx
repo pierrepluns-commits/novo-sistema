@@ -82,6 +82,9 @@ export default function NovaOSPage() {
 
   // Budget
   const [prepayment, setPrepayment] = useState("0");
+  const [prepaymentMethod, setPrepaymentMethod] = useState("CASH");
+  const [prepaymentCardFee, setPrepaymentCardFee] = useState("0");
+  const [prepaymentInstallments, setPrepaymentInstallments] = useState("1");
 
   const [isSaving, setIsSaving] = useState(false);
   const [globalError, setGlobalError] = useState("");
@@ -217,11 +220,18 @@ export default function NovaOSPage() {
         accessories: defect.accessories || undefined,
         checklistJson: JSON.stringify(checklist),
         prepayment: parseFloat(prepayment) || 0,
+        prepaymentMethod: prepaymentMethod,
+        prepaymentCardFee: prepaymentMethod === "CREDIT_CARD" || prepaymentMethod === "DEBIT_CARD" ? parseFloat(prepaymentCardFee) || 0 : 0,
+        prepaymentInstallments: prepaymentMethod === "CREDIT_CARD" ? parseInt(prepaymentInstallments, 10) || 1 : 1,
       };
 
       const res = await createServiceOrderAction(data);
       if (res.error) {
-        setGlobalError(res.error);
+        if (res.error === "CAIXA_DIA_ANTERIOR_ABERTO") {
+          setGlobalError("Atenção: Existe um caixa de dia anterior aberto! Você precisa fechar o caixa do dia anterior antes de abrir uma nova Ordem de Serviço.");
+        } else {
+          setGlobalError(res.error);
+        }
       } else {
         router.push(`/os/editar/${res.osId}`);
       }
@@ -594,22 +604,78 @@ export default function NovaOSPage() {
               <span>Sinal de Entrada (Opcional)</span>
             </h3>
 
-            <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl max-w-md">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Valor do Adiantamento / Sinal (R$)
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={prepayment}
-                  onChange={(e) => setPrepayment(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
-                />
+            <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl max-w-md space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  Valor do Adiantamento / Sinal (R$)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={prepayment}
+                    onChange={(e) => setPrepayment(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
               </div>
-              <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+
+              {parseFloat(prepayment) > 0 && (
+                <div className="space-y-4 pt-4 border-t border-slate-800 animate-in fade-in duration-200">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                      Forma de Pagamento do Sinal
+                    </label>
+                    <select
+                      value={prepaymentMethod}
+                      onChange={(e) => setPrepaymentMethod(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    >
+                      <option value="CASH">Dinheiro (Espécie)</option>
+                      <option value="PIX">Pix Transferência</option>
+                      <option value="CREDIT_CARD">Cartão de Crédito</option>
+                      <option value="DEBIT_CARD">Cartão de Débito</option>
+                    </select>
+                  </div>
+
+                  {(prepaymentMethod === "CREDIT_CARD" || prepaymentMethod === "DEBIT_CARD") && (
+                    <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Parcelas</label>
+                        <select
+                          value={prepaymentInstallments}
+                          onChange={(e) => setPrepaymentInstallments(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-bold"
+                        >
+                          <option value="1">1x à vista</option>
+                          <option value="2">2x</option>
+                          <option value="3">3x</option>
+                          <option value="4">4x</option>
+                          <option value="6">6x</option>
+                          <option value="12">12x</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Taxa da Maquininha (R$)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={prepaymentCardFee}
+                          onChange={(e) => setPrepaymentCardFee(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-[10px] text-slate-500 leading-relaxed">
                 * Caso o cliente pague um sinal de entrada no balcão, o valor será contabilizado como receita de entrada no caixa atual e deduzido do fechamento final.
               </p>
             </div>

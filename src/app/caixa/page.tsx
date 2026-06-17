@@ -61,11 +61,6 @@ export default async function CaixaPage() {
 
   if (register) {
     for (const tx of register.transactions) {
-      // Ignorar transações contábeis que não alteram a gaveta física do caixa
-      if (tx.category === "Custo de Produtos" || tx.category === "Taxas e Tarifas") {
-        continue;
-      }
-
       if (tx.type === "INCOME") {
         if (tx.description.includes("CASH") || tx.description.includes("Dinheiro")) {
           totals.cash += tx.amount;
@@ -223,20 +218,28 @@ export default async function CaixaPage() {
             
             <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-bold text-white mb-4">Lançamentos no Livro Caixa (Turno Atual)</h3>
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-                {register.transactions.filter(tx => tx.category !== "Custo de Produtos" && tx.category !== "Taxas e Tarifas").length === 0 ? (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                {register.transactions.length === 0 ? (
                   <p className="text-slate-500 text-sm text-center py-4">Nenhuma transação ainda.</p>
                 ) : (
                   register.transactions
-                    .filter(tx => tx.category !== "Custo de Produtos" && tx.category !== "Taxas e Tarifas")
-                    .slice(0, 15)
                     .map(tx => (
-                      <div key={tx.id} className="flex justify-between items-center bg-slate-800/30 p-3 rounded-lg border border-slate-700/30">
-                        <div>
-                          <p className="text-sm font-medium text-slate-300">{tx.description}</p>
-                          <p className="text-xs text-slate-500">{new Date(tx.transactionDate).toLocaleTimeString()}</p>
+                      <div key={tx.id} className="flex justify-between items-center bg-slate-800/30 p-3.5 rounded-lg border border-slate-700/30">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-slate-200">{tx.description}</p>
+                          <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                            <span className="bg-slate-950 text-indigo-400 px-1.5 py-0.5 rounded font-mono uppercase font-bold border border-slate-850">
+                              {tx.category || "Transação"}
+                            </span>
+                            <span className="text-slate-500">
+                              por {tx.user?.name || "Sistema"}
+                            </span>
+                            <span className="text-slate-600 font-mono">
+                              {new Date(tx.transactionDate).toLocaleTimeString("pt-BR")}
+                            </span>
+                          </div>
                         </div>
-                        <div className={`font-bold text-sm ${tx.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <div className={`font-bold text-sm shrink-0 ml-4 ${tx.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'}`}>
                           {tx.type === 'INCOME' ? '+' : '-'} R$ {tx.amount.toFixed(2)}
                         </div>
                       </div>

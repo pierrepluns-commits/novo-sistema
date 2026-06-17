@@ -19,7 +19,12 @@ export async function getCurrentCashRegister() {
     },
     include: {
       user: true,
-      transactions: true,
+      transactions: {
+        include: {
+          user: true
+        },
+        orderBy: { createdAt: "desc" }
+      },
     },
     orderBy: { openedAt: "desc" }
   });

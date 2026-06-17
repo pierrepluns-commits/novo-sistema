@@ -16,7 +16,8 @@ import {
   addPartToServiceOrderAction,
   removePartFromServiceOrderAction,
   finishAndBillServiceOrderAction,
-  cancelServiceOrderAction
+  cancelServiceOrderAction,
+  addCustomPartToServiceOrderAction
 } from "../../../actions/os";
 import Link from "next/link";
 
@@ -42,6 +43,7 @@ interface ServiceOrder {
   id: string;
   osNumber: number;
   clientId: string;
+  userId: string | null;
   equipmentType: string;
   equipmentBrand: string;
   equipmentModel: string;
@@ -81,10 +83,16 @@ interface AvailablePart {
   quantity: number;
 }
 
+interface User {
+  id: string;
+  name: string;
+}
+
 interface OSEditorClientProps {
   os: ServiceOrder;
   clients: Client[];
   availableParts: AvailablePart[];
+  users?: User[];
 }
 
 const statusMap: Record<string, { label: string; color: string }> = {
@@ -103,7 +111,7 @@ const CHECKLIST_ITEMS = [
   "Botões Volume", "Wi-Fi", "Bluetooth / Rede", "Sensor Biométrico"
 ];
 
-export default function OSEditorClient({ os, clients, availableParts }: OSEditorClientProps) {
+export default function OSEditorClient({ os, clients, availableParts, users }: OSEditorClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -176,6 +184,7 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
     status: os.status,
     warrantyPeriod: String(os.warrantyPeriod),
     warrantyTerms: os.warrantyTerms || "Garantia legal de 90 dias cobrindo defeitos das peças substituídas sob uso normal. Não cobre danos por queda, mau uso ou contato com líquidos.",
+    userId: os.userId || "",
   });
 
   const handleUpdateTechnical = async () => {
@@ -187,7 +196,8 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
         parseFloat(techForm.servicePrice) || 0,
         techForm.status,
         parseInt(techForm.warrantyPeriod, 10) || 0,
-        techForm.warrantyTerms
+        techForm.warrantyTerms,
+        techForm.userId || undefined
       );
 
       if (res.error) {
@@ -220,6 +230,48 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
   const [partPrice, setPartPrice] = useState("");
   const [selectedPart, setSelectedPart] = useState<AvailablePart | null>(null);
   const [filteredParts, setFilteredParts] = useState<AvailablePart[]>([]);
+
+  // Custom/On-Demand parts state
+  const [isCustomPart, setIsCustomPart] = useState(false);
+  const [customPartName, setCustomPartName] = useState("");
+  const [customPartCost, setCustomPartCost] = useState("0");
+
+  const handleAddCustomPart = async () => {
+    setGlobalMessage(null);
+    if (!customPartName.trim()) {
+      setGlobalMessage({ text: "Digite o nome da peça.", type: "error" });
+      return;
+    }
+    const qty = parseInt(partQty, 10);
+    const price = parseFloat(partPrice);
+    const cost = parseFloat(customPartCost);
+    if (isNaN(qty) || qty <= 0) {
+      setGlobalMessage({ text: "Quantidade inválida.", type: "error" });
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      setGlobalMessage({ text: "Preço de venda inválido.", type: "error" });
+      return;
+    }
+    if (isNaN(cost) || cost < 0) {
+      setGlobalMessage({ text: "Preço de custo inválido.", type: "error" });
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await addCustomPartToServiceOrderAction(os.id, customPartName, qty, price, cost);
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+      } else {
+        setGlobalMessage({ text: "Peça sob demanda adicionada ao orçamento!", type: "success" });
+        setCustomPartName("");
+        setCustomPartCost("0");
+        setPartPrice("");
+        setPartQty("1");
+        router.refresh();
+      }
+    });
+  };
 
   const handlePartSearch = (query: string) => {
     setPartSearch(query);
@@ -674,6 +726,28 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Técnico Responsável */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                  Técnico Responsável
+                </label>
+                <select
+                  value={techForm.userId}
+                  disabled={os.status === "DELIVERED"}
+                  onChange={(e) => setTechForm((prev) => ({ ...prev, userId: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold text-white"
+                >
+                  <option value="">Sem técnico definido</option>
+                  {users?.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* O.S. Cost section (Sempre editável!) */}
             <div className="p-4 bg-[#0a0f1d] border border-slate-800 rounded-2xl space-y-4">
               <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -792,50 +866,101 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
               <span>Orçamento & Aplicação de Peças</span>
             </h3>
 
+            {/* Toggle custom parts vs catalog search */}
+            {os.status !== "DELIVERED" && (
+              <div className="flex items-center gap-2 mb-4 p-2 bg-indigo-950/20 border border-indigo-900/30 rounded-xl max-w-sm animate-in fade-in duration-200">
+                <input
+                  type="checkbox"
+                  id="customPartToggle"
+                  checked={isCustomPart}
+                  onChange={(e) => {
+                    setIsCustomPart(e.target.checked);
+                    setSelectedPart(null);
+                    setPartSearch("");
+                    setPartPrice("");
+                    setCustomPartName("");
+                    setCustomPartCost("0");
+                  }}
+                  className="rounded border-slate-850 bg-slate-950 text-indigo-500 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="customPartToggle" className="text-xs font-bold text-slate-300 cursor-pointer select-none">
+                  Peça sob demanda (Comprada apenas para esta O.S.)
+                </label>
+              </div>
+            )}
+
             {/* Stock addition form */}
             {os.status !== "DELIVERED" && (
               <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 items-end relative">
                 
-                {/* Search piece */}
-                <div className="md:col-span-2 space-y-1.5 relative">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Buscar Peça no Estoque</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Pesquise por nome ou SKU..."
-                      value={partSearch}
-                      onChange={(e) => handlePartSearch(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none"
-                    />
-                    {selectedPart && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
-                        <span>Qtd Disp: {selectedPart.quantity}</span>
+                {isCustomPart ? (
+                  <>
+                    {/* Custom part name */}
+                    <div className="md:col-span-1 space-y-1.5">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça sob demanda</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Tela iPhone 11 OEM..."
+                        value={customPartName}
+                        onChange={(e) => setCustomPartName(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none"
+                      />
+                    </div>
+                    {/* Cost price */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo (R$)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={customPartCost}
+                        onChange={(e) => setCustomPartCost(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none font-mono"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* Catalog search */
+                  <div className="md:col-span-2 space-y-1.5 relative">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Buscar Peça no Estoque</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Pesquise por nome ou SKU..."
+                        value={partSearch}
+                        onChange={(e) => handlePartSearch(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none"
+                      />
+                      {selectedPart && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
+                          <span>Qtd Disp: {selectedPart.quantity}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dropdown list */}
+                    {filteredParts.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-[#090e1a] border border-slate-800 rounded-xl max-h-52 overflow-y-auto z-40 shadow-2xl divide-y divide-slate-800/60 text-xs">
+                        {filteredParts.map((p) => (
+                          <div
+                            key={p.productId}
+                            onClick={() => selectPart(p)}
+                            className="px-4 py-2.5 hover:bg-slate-800/40 cursor-pointer flex justify-between items-center"
+                          >
+                            <div>
+                              <span className="font-bold text-white block">{p.name}</span>
+                              <span className="text-slate-500 font-mono text-[10px]">SKU: {p.sku}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-emerald-400 font-bold block">R$ {p.price.toFixed(2)}</span>
+                              <span className="text-slate-500 text-[10px] font-semibold">Estoque: {p.quantity}</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
-
-                  {/* Dropdown list */}
-                  {filteredParts.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-[#090e1a] border border-slate-800 rounded-xl max-h-52 overflow-y-auto z-40 shadow-2xl divide-y divide-slate-800/60 text-xs">
-                      {filteredParts.map((p) => (
-                        <div
-                          key={p.productId}
-                          onClick={() => selectPart(p)}
-                          className="px-4 py-2.5 hover:bg-slate-800/40 cursor-pointer flex justify-between items-center"
-                        >
-                          <div>
-                            <span className="font-bold text-white block">{p.name}</span>
-                            <span className="text-slate-500 font-mono text-[10px]">SKU: {p.sku}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-emerald-400 font-bold block">R$ {p.price.toFixed(2)}</span>
-                            <span className="text-slate-500 text-[10px] font-semibold">Estoque: {p.quantity}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* Qty */}
                 <div className="space-y-1.5">
@@ -849,9 +974,9 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
                   />
                 </div>
 
-                {/* Price */}
+                {/* Price / Sale price */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço Unitário (R$)</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço Venda Unitário (R$)</label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input
@@ -864,7 +989,7 @@ export default function OSEditorClient({ os, clients, availableParts }: OSEditor
                       />
                     </div>
                     <Button
-                      onClick={handleAddPart}
+                      onClick={isCustomPart ? handleAddCustomPart : handleAddPart}
                       disabled={isPending}
                       className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold p-2.5 rounded-xl shrink-0"
                     >

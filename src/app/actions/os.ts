@@ -18,6 +18,9 @@ export type TriagemOSData = {
   accessories?: string;
   checklistJson: string; // checklist state stringified
   prepayment?: number; // Sinal
+  prepaymentMethod?: string; // CASH, PIX, CREDIT_CARD, DEBIT_CARD
+  prepaymentCardFee?: number;
+  prepaymentInstallments?: number;
 };
 
 // 1. Create Service Order (Abertura e Triagem)
@@ -37,6 +40,24 @@ export async function createServiceOrderAction(data: TriagemOSData) {
     return { error: "Tipo, Marca e Modelo do aparelho são obrigatórios." };
   }
   if (!data.reportedDefect) return { error: "Defeito relatado é obrigatório." };
+
+  // Verificar se há algum caixa aberto de dias anteriores na unidade selecionada
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const openYesterdayRegister = await prisma.cashRegister.findFirst({
+    where: {
+      unitId: selectedUnitId,
+      status: "OPEN",
+      openedAt: {
+        lt: startOfToday
+      }
+    }
+  });
+
+  if (openYesterdayRegister) {
+    return { error: "CAIXA_DIA_ANTERIOR_ABERTO" };
+  }
 
   try {
     const os = await prisma.$transaction(async (tx) => {
@@ -78,19 +99,42 @@ export async function createServiceOrderAction(data: TriagemOSData) {
         });
 
         if (register) {
+          const methodLabel = 
+            data.prepaymentMethod === "CASH" ? "Dinheiro" : 
+            data.prepaymentMethod === "PIX" ? "PIX" : 
+            data.prepaymentMethod === "CREDIT_CARD" ? "Crédito" : 
+            data.prepaymentMethod === "DEBIT_CARD" ? "Débito" : "Dinheiro";
+
           await tx.financialTransaction.create({
             data: {
               type: "INCOME",
               companyId: session.companyId!,
               unitId: selectedUnitId,
               amount: data.prepayment,
-              description: `Sinal O.S. #${nextOSNumber} - ${data.equipmentBrand} ${data.equipmentModel}`,
+              description: `Sinal O.S. #${nextOSNumber} - ${data.equipmentBrand} ${data.equipmentModel} - ${methodLabel}`,
               category: "Entrada Adiantamento O.S.",
               transactionDate: new Date(),
               userId: session.userId,
               cashRegisterId: register.id,
             },
           });
+
+          // Se houver taxa de cartão para o sinal, registra como despesa de taxa
+          if (data.prepaymentCardFee && data.prepaymentCardFee > 0 && (data.prepaymentMethod === "CREDIT_CARD" || data.prepaymentMethod === "DEBIT_CARD")) {
+            await tx.financialTransaction.create({
+              data: {
+                type: "EXPENSE",
+                companyId: session.companyId!,
+                unitId: selectedUnitId,
+                amount: data.prepaymentCardFee,
+                description: `Taxa Cartão Sinal - O.S. #${nextOSNumber}`,
+                category: "Taxas e Tarifas",
+                transactionDate: new Date(),
+                userId: session.userId,
+                cashRegisterId: register.id,
+              },
+            });
+          }
         }
       }
 
@@ -146,14 +190,15 @@ export async function updateServiceOrderAction(osId: string, data: Partial<Triag
   }
 }
 
-// 3. Technical Update (Laudo, Mão de Obra, Status e Garantia)
+// 3. Technical Update (Laudo, Mão de Obra, Status, Garantia e Técnico)
 export async function updateServiceOrderTechnicalAction(
   osId: string,
   report: string,
   servicePrice: number,
   status: string,
   warrantyPeriod: number,
-  warrantyTerms: string
+  warrantyTerms: string,
+  userId?: string
 ) {
   const session = await getSession();
   if (!session || !session.companyId) {
@@ -179,6 +224,7 @@ export async function updateServiceOrderTechnicalAction(
         warrantyPeriod: warrantyPeriod || 0,
         warrantyTerms: warrantyTerms ? warrantyTerms.trim() : null,
         totalAmount,
+        userId: userId || null,
       },
     });
 
@@ -586,5 +632,88 @@ export async function cancelServiceOrderAction(osId: string) {
     return { success: true };
   } catch (error: any) {
     return { error: "Erro ao cancelar O.S.: " + error.message };
+  }
+}
+
+// 8. Add custom on-demand part to Service Order
+export async function addCustomPartToServiceOrderAction(
+  osId: string,
+  name: string,
+  quantity: number,
+  unitPrice: number,
+  unitCost: number
+) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  const selectedUnitId = await getSelectedUnitId();
+  if (!selectedUnitId) return { error: "Selecione uma unidade/loja." };
+
+  if (!name.trim()) return { error: "Nome da peça é obrigatório." };
+  if (quantity <= 0) return { error: "Quantidade deve ser maior que zero." };
+
+  try {
+    const os = await prisma.serviceOrder.findUnique({
+      where: { id: osId, companyId: session.companyId },
+    });
+
+    if (!os) return { error: "O.S. não encontrada." };
+    if (os.status === "DELIVERED") return { error: "O.S. já foi entregue." };
+
+    // Criar o produto sob demanda no banco para esta empresa com SKU único
+    const customSku = `OS-CUSTOM-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    await prisma.$transaction(async (tx) => {
+      const newProduct = await tx.product.create({
+        data: {
+          companyId: session.companyId!,
+          name: `${name.trim()} (O.S. #${os.osNumber})`,
+          sku: customSku,
+          price: unitPrice,
+          cost: unitCost,
+          description: `Peça sob demanda criada para a O.S. #${os.osNumber}`,
+        },
+      });
+
+      // Criar o estoque inicial para essa unidade (igual à quantidade solicitada para que a baixa funcione)
+      await tx.stock.create({
+        data: {
+          productId: newProduct.id,
+          unitId: selectedUnitId,
+          quantity: quantity,
+        },
+      });
+
+      // Adicionar o item à O.S.
+      await tx.serviceOrderItem.create({
+        data: {
+          serviceOrderId: osId,
+          productId: newProduct.id,
+          quantity,
+          unitPrice,
+          unitCost,
+        },
+      });
+
+      // Atualizar totais na O.S.
+      const partsTotal = os.partsPrice + (quantity * unitPrice);
+      const totalAmount = os.servicePrice + partsTotal - os.discount;
+
+      await tx.serviceOrder.update({
+        where: { id: osId },
+        data: {
+          partsPrice: partsTotal,
+          totalAmount,
+        },
+      });
+    });
+
+    revalidatePath(`/os/editar/${osId}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(error);
+    return { error: "Erro ao adicionar peça sob demanda: " + error.message };
   }
 }

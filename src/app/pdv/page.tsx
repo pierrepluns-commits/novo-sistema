@@ -112,7 +112,13 @@ export default function PDVPage() {
       setIsReceiptModalOpen(true);
     } catch (error: any) {
       console.error(error);
-      alert(error.message || "Erro ao finalizar venda.");
+      if (error.message === "CAIXA_DIA_ANTERIOR_ABERTO") {
+        alert("Atenção: Existe um caixa de dia anterior aberto! Você precisa fechar o caixa do dia anterior antes de realizar novas vendas.");
+      } else if (error.message === "CAIXA_FECHADO") {
+        alert("Atenção: Não há nenhum caixa aberto nesta unidade. Por favor, abra o caixa antes de fazer vendas.");
+      } else {
+        alert(error.message || "Erro ao finalizar venda.");
+      }
     }
   };
 

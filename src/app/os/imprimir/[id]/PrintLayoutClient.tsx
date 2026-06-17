@@ -141,6 +141,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
 
   // Find technician name
   const technicianName = checklistObj.technicianName || os.user?.name || "Pierre Luns";
+  const partName = checklistObj.partName || "";
 
   const handlePrint = () => {
     window.print();
@@ -171,7 +172,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
 
   // Render checklist string matching the format: "TELA DISPLAY: SIM | TECLAS: SIM"
   const checklistStr = Object.entries(checklistObj)
-    .filter(([key, val]) => val !== "NONE" && key !== "technicianName")
+    .filter(([key, val]) => val !== "NONE" && key !== "technicianName" && key !== "partName" && key !== "cardServicePrice")
     .map(([key, val]) => `${key.toUpperCase()}: ${val === "OK" ? "SIM" : "NÃO"}`)
     .join(" | ") || "NADA CONSTATADO";
 
@@ -277,16 +278,19 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
             {/* Parts table */}
             <div className="col-span-3 border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5 space-y-1">
               <span className="text-slate-500 print:text-black block font-bold text-[9px] print:text-[7.5px] uppercase tracking-wider mb-0.5 border-b border-slate-800/40 print:border-black/10 pb-0.5">Peças Aplicadas</span>
-              {os.items.length === 0 ? (
+              {!partName && os.items.length === 0 ? (
                 <p className="text-slate-400 print:text-black italic">Nenhuma peça aplicada.</p>
               ) : (
-                <div className="max-h-[60px] overflow-hidden leading-snug">
-                  {os.items.map((item) => (
-                    <div key={item.id} className="flex justify-between">
-                      <span>• {item.product.name} (x{item.quantity})</span>
-                      <span className="font-mono">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
-                    </div>
-                  ))}
+                <div className="max-h-[60px] overflow-hidden leading-snug space-y-0.5">
+                  {partName ? (
+                    <div className="font-bold uppercase">• {partName.toUpperCase()}</div>
+                  ) : (
+                    os.items.map((item) => (
+                      <div key={item.id}>
+                        • {item.product.name} (x{item.quantity})
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -296,10 +300,6 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               <div className="flex justify-between">
                 <span>Serviço:</span>
                 <span>R$ {os.servicePrice.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Peças:</span>
-                <span>R$ {os.partsPrice.toFixed(2)}</span>
               </div>
               {os.prepayment > 0 && (
                 <div className="flex justify-between text-emerald-400 print:text-black">
@@ -615,15 +615,20 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
                 <div className="italic leading-normal">{os.technicalReport || "Serviço efetuado."}</div>
               </div>
 
-              {os.items.length > 0 && (
+              {(partName || os.items.length > 0) && (
                 <div className="space-y-1 border-b border-dashed border-black pb-2 text-[9px]">
                   <div className="font-bold uppercase text-[10px]">Peças:</div>
-                  {os.items.map((item) => (
-                    <div key={item.id} className="flex justify-between gap-1">
-                      <span className="truncate max-w-[150px]">{item.product.name}</span>
-                      <span>{item.unitPrice > 0 ? `R$ ${(item.quantity * item.unitPrice).toFixed(2)}` : "Cortesia"}</span>
+                  {partName ? (
+                    <div className="leading-snug font-bold uppercase">
+                      • {partName}
                     </div>
-                  ))}
+                  ) : (
+                    os.items.map((item) => (
+                      <div key={item.id} className="leading-snug">
+                        • {item.product.name} (x{item.quantity})
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 
@@ -632,10 +637,6 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
                 <div className="flex justify-between">
                   <span>Mão de Obra:</span>
                   <span>R$ {os.servicePrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Peças:</span>
-                  <span>R$ {os.partsPrice.toFixed(2)}</span>
                 </div>
                 {os.prepayment > 0 && (
                   <div className="flex justify-between font-bold">

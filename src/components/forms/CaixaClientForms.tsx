@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { addManualCashTransaction } from "@/app/actions/caixa";
 import { updateSaleFee, updateSaleDetails } from "@/app/actions/pdv";
 import toast from "react-hot-toast";
-import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator } from "lucide-react";
 
 // ==========================================
 // 1. INLINE CARD FEE EDITOR component
@@ -402,3 +402,230 @@ export function ManualTransactionForm() {
     </div>
   );
 }
+
+// ==========================================
+// 3. SERVICE ORDERS SHIFT LIST component
+// ==========================================
+interface ShiftServiceOrder {
+  id: string;
+  osNumber: number;
+  equipmentBrand: string;
+  equipmentModel: string;
+  equipmentType: string;
+  servicePrice: number;
+  partsPrice: number;
+  cost: number;
+  discount: number;
+  totalAmount: number;
+  paymentMethod: string | null;
+  updatedAt: Date | string;
+  client: { name: string; phone: string };
+  user: { name: string } | null;
+  checklist: string;
+}
+
+interface ServiceOrdersShiftListProps {
+  serviceOrders: ShiftServiceOrder[];
+}
+
+export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftListProps) {
+  const [commissionRate, setCommissionRate] = useState<number>(50); // Default 50%
+  const [customRate, setCustomRate] = useState<string>("");
+
+  const handleRateChange = (rate: number) => {
+    setCommissionRate(rate);
+    setCustomRate("");
+  };
+
+  const handleCustomRateChange = (val: string) => {
+    setCustomRate(val);
+    const parsed = parseInt(val) || 0;
+    setCommissionRate(parsed);
+  };
+
+  // Calculate overall shift totals
+  let totalBilled = 0;
+  let totalPartsCost = 0;
+  let totalOutsourcedCost = 0;
+  let totalCommission = 0;
+
+  const processedOrders = serviceOrders.map((os) => {
+    let checklistObj: Record<string, any> = {};
+    try {
+      checklistObj = JSON.parse(os.checklist || "{}");
+    } catch {
+      checklistObj = {};
+    }
+
+    const techName = checklistObj.technicianName || os.user?.name || "Sem Técnico";
+    
+    // Billed amount to client = totalAmount (which is servicePrice - discount)
+    const billed = os.totalAmount;
+    const partsCost = os.partsPrice || 0;
+    const outsourcedCost = os.cost || 0;
+    const commission = os.servicePrice * (commissionRate / 100);
+
+    totalBilled += billed;
+    totalPartsCost += partsCost;
+    totalOutsourcedCost += outsourcedCost;
+    totalCommission += commission;
+
+    return {
+      ...os,
+      techName,
+      billed,
+      partsCost,
+      outsourcedCost,
+      commission,
+    };
+  });
+
+  const totalCost = totalPartsCost + totalOutsourcedCost;
+  const netProfitTotal = totalBilled - totalCost;
+
+  return (
+    <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800 pb-4">
+        <div>
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Calculator className="w-5 h-5 text-indigo-400" />
+            Resumo de Serviços e Comissões (Turno Atual)
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">Ordens de serviço finalizadas e entregues no caixa atual</p>
+        </div>
+
+        {/* Commission selector */}
+        <div className="flex items-center gap-2 bg-[#0a0f1c] p-1.5 rounded-lg border border-slate-800 shrink-0">
+          <span className="text-[10px] uppercase font-bold text-slate-500 px-2">Comissão:</span>
+          {[50, 40, 30, 0].map((rate) => (
+            <button
+              key={rate}
+              onClick={() => handleRateChange(rate)}
+              className={`px-2 py-1 text-xs font-bold rounded transition-all ${
+                commissionRate === rate && !customRate
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {rate}%
+            </button>
+          ))}
+          <div className="relative w-14 ml-1">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={customRate}
+              onChange={(e) => handleCustomRateChange(e.target.value)}
+              placeholder="Outro"
+              className="w-full bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-center text-white focus:outline-none focus:border-indigo-500 placeholder:text-slate-600 font-bold"
+            />
+            {customRate && <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400 font-bold">%</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Totals Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-[#0a0f1c] border border-slate-800 rounded-xl p-4">
+        <div className="space-y-1">
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Serviços</span>
+          <div className="text-base font-extrabold text-white font-mono">
+            R$ {totalBilled.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Custos (Peças+Terc)</span>
+          <div className="text-base font-extrabold text-amber-500 font-mono">
+            R$ {totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Comissões ({commissionRate}%)</span>
+          <div className="text-base font-extrabold text-rose-400 font-mono">
+            R$ {totalCommission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Lucro Líquido Real</span>
+          <div className="text-base font-extrabold text-emerald-400 font-mono">
+            R$ {netProfitTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </div>
+        </div>
+      </div>
+
+      {/* Service Orders list */}
+      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+        {processedOrders.length === 0 ? (
+          <p className="text-slate-500 text-sm text-center py-4">Nenhuma ordem de serviço faturada neste turno.</p>
+        ) : (
+          processedOrders.map((os) => {
+            const clientName = os.client.name;
+            const isLojista = clientName.endsWith(" (Lojista)");
+            const cleanClientName = isLojista ? clientName.substring(0, clientName.length - 10) : clientName;
+
+            return (
+              <div
+                key={os.id}
+                className="bg-[#1e293b]/20 p-4 rounded-xl border border-slate-700/30 space-y-3 hover:bg-[#1e293b]/30 transition-colors"
+              >
+                <div className="flex justify-between items-start gap-4">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-mono font-bold text-indigo-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">
+                        O.S. #{os.osNumber}
+                      </span>
+                      <span className="text-sm font-bold text-white">
+                        {os.equipmentBrand} {os.equipmentModel}
+                      </span>
+                      {isLojista && (
+                        <span className="text-[10px] bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                          Lojista
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Cliente: <span className="font-semibold text-slate-200">{cleanClientName}</span> • 
+                      Técnico: <span className="font-semibold text-indigo-300">{os.techName}</span>
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                      os.paymentMethod === "CASH" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/10" :
+                      os.paymentMethod === "PIX" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/10" : "bg-purple-500/20 text-purple-400 border border-purple-500/10"
+                    }`}>
+                      {os.paymentMethod === "CASH" ? "Dinheiro" : os.paymentMethod === "PIX" ? "PIX" : os.paymentMethod === "CREDIT_CARD" ? "Crédito" : "Débito"}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {new Date(os.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Financial detail row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 bg-slate-950/40 p-3 rounded-lg border border-slate-800/50 text-[11px]">
+                  <div>
+                    <span className="text-slate-500 block">Cobrado (Total):</span>
+                    <span className="font-mono text-white font-bold">R$ {os.billed.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Custo (Peça+Terc):</span>
+                    <span className="font-mono text-amber-500 font-bold">R$ {(os.partsCost + os.outsourcedCost).toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Comissão ({commissionRate}%):</span>
+                    <span className="font-mono text-rose-400 font-bold">R$ {os.commission.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Lucro Líquido:</span>
+                    <span className="font-mono text-emerald-400 font-black">R$ {(os.billed - os.partsCost - os.outsourcedCost).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+

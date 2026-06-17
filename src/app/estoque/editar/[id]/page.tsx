@@ -28,7 +28,15 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
   }) : [];
 
   const allProducts = await prisma.product.findMany({
-    where: { companyId: session.companyId, isKit: false },
+    where: { 
+      companyId: session.companyId, 
+      isKit: false,
+      NOT: {
+        sku: {
+          startsWith: "OS-CUSTOM-"
+        }
+      }
+    },
     select: { id: true, name: true, sku: true, price: true }
   });
 

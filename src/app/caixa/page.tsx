@@ -5,7 +5,7 @@ import { getCurrentCashRegister } from "@/app/actions/caixa";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CashRegisterClient } from "@/components/forms/CashRegisterClient";
 import { Banknote, CreditCard, Clock, Calculator } from "lucide-react";
-import { ManualTransactionForm, EditSaleModal } from "@/components/forms/CaixaClientForms";
+import { ManualTransactionForm, EditSaleModal, ServiceOrdersShiftList } from "@/components/forms/CaixaClientForms";
 import { getSelectedUnitId } from "@/app/actions/unit";
 
 export default async function CaixaPage() {
@@ -54,6 +54,23 @@ export default async function CaixaPage() {
     orderBy: { createdAt: "desc" }
   }) : [];
 
+  // Buscar todas as ordens de serviço finalizadas no turno atual se houver caixa aberto
+  const serviceOrders = register ? await prisma.serviceOrder.findMany({
+    where: {
+      unitId: register.unitId,
+      status: "DELIVERED",
+      updatedAt: {
+        gte: register.openedAt,
+        lte: register.closedAt || new Date()
+      }
+    },
+    include: {
+      client: true,
+      user: true
+    },
+    orderBy: { updatedAt: "desc" }
+  }) : [];
+
   // Se houver caixa aberto, calcular totais
   let totals = { cash: 0, credit: 0, debit: 0, pix: 0, other: 0 };
   let cashOutflows = 0; // Sangrias e estornos em dinheiro
@@ -76,11 +93,11 @@ export default async function CaixaPage() {
           totals.other += tx.amount;
         }
       } else {
-        // Para EXPENSE (que não seja contábil, ou seja, Sangrias e Estornos)
+        // Para EXPENSE (Sangrias, Estornos, Custo de Peças/Produtos e Custo de Serviços)
         totalExpenses += tx.amount;
 
-        // Se foi em dinheiro, deduzimos do saldo da gaveta física
-        if (tx.category === "Saída Manual") {
+        // Se foi em dinheiro ou custo registrado da OS, deduzimos do saldo da gaveta física
+        if (tx.category === "Saída Manual" || tx.category === "Custo de Produtos" || tx.category === "Custo de Serviços") {
           cashOutflows += tx.amount;
         } else if (tx.category === "Estorno") {
           if (tx.description.includes("Dinheiro") || tx.description.includes("CASH")) {
@@ -215,6 +232,11 @@ export default async function CaixaPage() {
                 )}
               </div>
             </div>
+
+            {/* Histórico de Ordens de Serviço e Comissões */}
+            {register && (
+              <ServiceOrdersShiftList serviceOrders={serviceOrders as any} />
+            )}
             
             <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-bold text-white mb-4">Lançamentos no Livro Caixa (Turno Atual)</h3>

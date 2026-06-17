@@ -13,11 +13,9 @@ import {
   updateServiceOrderAction, 
   updateServiceOrderTechnicalAction,
   updateServiceOrderCostAction,
-  addPartToServiceOrderAction,
-  removePartFromServiceOrderAction,
   finishAndBillServiceOrderAction,
   cancelServiceOrderAction,
-  addCustomPartToServiceOrderAction
+  updateServiceOrderPartAction
 } from "../../../actions/os";
 import Link from "next/link";
 
@@ -33,6 +31,7 @@ interface ServiceOrderItem {
   productId: string;
   quantity: number;
   unitPrice: number;
+  unitCost: number;
   product: {
     name: string;
     sku: string;
@@ -81,6 +80,7 @@ interface AvailablePart {
   name: string;
   sku: string;
   price: number;
+  cost?: number;
   quantity: number;
 }
 
@@ -186,11 +186,15 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
     initialChecklistObj = {};
   }
   const savedTechName = initialChecklistObj.technicianName || os.user?.name || "";
+  const savedCardPrice = initialChecklistObj.cardServicePrice !== undefined && initialChecklistObj.cardServicePrice !== null 
+    ? String(initialChecklistObj.cardServicePrice) 
+    : String(os.servicePrice);
 
   // --- TAB 2: Technical Report State ---
   const [techForm, setTechForm] = useState({
     technicalReport: os.technicalReport || "",
     servicePrice: String(os.servicePrice),
+    cardServicePrice: savedCardPrice,
     status: os.status,
     warrantyPeriod: String(os.warrantyPeriod),
     warrantyTerms: os.warrantyTerms || "Garantia legal de 90 dias cobrindo defeitos das peças substituídas sob uso normal. Não cobre danos por queda, mau uso ou contato com líquidos.",
@@ -209,7 +213,8 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
         parseInt(techForm.warrantyPeriod, 10) || 0,
         techForm.warrantyTerms,
         techForm.userId || undefined,
-        techForm.technicianName
+        techForm.technicianName,
+        parseFloat(techForm.cardServicePrice) || 0
       );
 
       if (res.error) {
@@ -236,116 +241,22 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
     });
   };
 
-  // --- TAB 3: Parts Budgeting State ---
-  const [partSearch, setPartSearch] = useState("");
-  const [partQty, setPartQty] = useState("1");
-  const [partPrice, setPartPrice] = useState("");
-  const [selectedPart, setSelectedPart] = useState<AvailablePart | null>(null);
-  const [filteredParts, setFilteredParts] = useState<AvailablePart[]>([]);
+  // --- TAB 3: Simple Part Name & Cost State ---
+  const [partNameInput, setPartNameInput] = useState(initialChecklistObj.partName || "");
+  const [partCostInput, setPartCostInput] = useState(String(os.partsPrice || 0));
 
-  // Custom/On-Demand parts state
-  const [isCustomPart, setIsCustomPart] = useState(false);
-  const [customPartName, setCustomPartName] = useState("");
-  const [customPartCost, setCustomPartCost] = useState("0");
-
-  const handleAddCustomPart = async () => {
+  const handleUpdatePart = async () => {
     setGlobalMessage(null);
-    if (!customPartName.trim()) {
-      setGlobalMessage({ text: "Digite o nome da peça.", type: "error" });
-      return;
-    }
-    const qty = parseInt(partQty, 10);
-    const price = parseFloat(partPrice) || 0;
-    const cost = parseFloat(customPartCost) || 0;
-    if (isNaN(qty) || qty <= 0) {
-      setGlobalMessage({ text: "Quantidade inválida.", type: "error" });
-      return;
-    }
-    if (price < 0) {
-      setGlobalMessage({ text: "Preço de venda inválido.", type: "error" });
-      return;
-    }
-    if (cost < 0) {
-      setGlobalMessage({ text: "Preço de custo inválido.", type: "error" });
-      return;
-    }
-
     startTransition(async () => {
-      const res = await addCustomPartToServiceOrderAction(os.id, customPartName, qty, price, cost);
+      const res = await updateServiceOrderPartAction(
+        os.id,
+        partNameInput,
+        parseFloat(partCostInput) || 0
+      );
       if (res.error) {
         setGlobalMessage({ text: res.error, type: "error" });
       } else {
-        setGlobalMessage({ text: "Peça sob demanda adicionada ao orçamento!", type: "success" });
-        setCustomPartName("");
-        setCustomPartCost("0");
-        setPartPrice("");
-        setPartQty("1");
-        router.refresh();
-      }
-    });
-  };
-
-  const handlePartSearch = (query: string) => {
-    setPartSearch(query);
-    if (!query.trim()) {
-      setFilteredParts([]);
-      return;
-    }
-    const matches = availableParts.filter(
-      (p) => p.name.toLowerCase().includes(query.toLowerCase()) || p.sku.toLowerCase().includes(query.toLowerCase())
-    );
-    setFilteredParts(matches);
-  };
-
-  const selectPart = (part: AvailablePart) => {
-    setSelectedPart(part);
-    setPartSearch(part.name);
-    setPartPrice(String(part.price));
-    setFilteredParts([]);
-  };
-
-  const handleAddPart = async () => {
-    setGlobalMessage(null);
-    if (!selectedPart) {
-      setGlobalMessage({ text: "Selecione uma peça em estoque.", type: "error" });
-      return;
-    }
-
-    const qty = parseInt(partQty, 10);
-    const price = parseFloat(partPrice) || 0;
-    if (isNaN(qty) || qty <= 0) {
-      setGlobalMessage({ text: "Quantidade inválida.", type: "error" });
-      return;
-    }
-    if (price < 0) {
-      setGlobalMessage({ text: "Preço inválido.", type: "error" });
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await addPartToServiceOrderAction(os.id, selectedPart.productId, qty, price);
-      if (res.error) {
-        setGlobalMessage({ text: res.error, type: "error" });
-      } else {
-        setGlobalMessage({ text: "Peça adicionada ao orçamento!", type: "success" });
-        setSelectedPart(null);
-        setPartSearch("");
-        setPartPrice("");
-        setPartQty("1");
-        router.refresh();
-      }
-    });
-  };
-
-  const handleRemovePart = async (itemId: string) => {
-    if (!confirm("Remover esta peça do orçamento?")) return;
-    setGlobalMessage(null);
-    startTransition(async () => {
-      const res = await removePartFromServiceOrderAction(itemId);
-      if (res.error) {
-        setGlobalMessage({ text: res.error, type: "error" });
-      } else {
-        setGlobalMessage({ text: "Peça removida com sucesso.", type: "success" });
+        setGlobalMessage({ text: "Dados da peça e custo atualizados!", type: "success" });
         router.refresh();
       }
     });
@@ -358,13 +269,29 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
   const [installments, setInstallments] = useState("1");
   const [cardFee, setCardFee] = useState("0");
 
-  const servicePriceNum = parseFloat(techForm.servicePrice) || os.servicePrice;
+  const isCardPayment = paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD";
+  const activeLaborPrice = os.status === "DELIVERED"
+    ? os.servicePrice
+    : (isCardPayment
+        ? (parseFloat(techForm.cardServicePrice) || os.servicePrice)
+        : (parseFloat(techForm.servicePrice) || os.servicePrice));
+
   const partsPriceNum = os.partsPrice;
   const discountNum = parseFloat(billDiscount) || 0;
   const prepaymentNum = os.prepayment;
   
-  const finalTotalAmount = servicePriceNum + partsPriceNum - discountNum;
-  const remainderToPay = Math.max(0, finalTotalAmount - prepaymentNum);
+  const finalTotalAmount = os.status === "DELIVERED"
+    ? os.totalAmount
+    : (activeLaborPrice - discountNum);
+  const remainderToPay = os.status === "DELIVERED"
+    ? Math.max(0, os.totalAmount - os.prepayment)
+    : Math.max(0, finalTotalAmount - prepaymentNum);
+
+  const totalPartsCost = os.partsPrice || 0;
+  const outsourcedCost = parseFloat(osCost) || 0;
+  const consolidatedCost = totalPartsCost + outsourcedCost;
+  const netProfit = finalTotalAmount - consolidatedCost;
+  const margin = finalTotalAmount > 0 ? (netProfit / finalTotalAmount) * 100 : 0;
 
   const handleBillCheckout = async () => {
     setGlobalMessage(null);
@@ -478,7 +405,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
           }`}
         >
           <Clipboard className="w-4 h-4" />
-          <span>Orçamento Peças ({os.items.length})</span>
+          <span>Peça Aplicada</span>
         </button>
 
         <button
@@ -695,7 +622,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
             </h3>
 
             {/* Status Flow */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                   Status da Ordem de Serviço
@@ -716,10 +643,10 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                 </select>
               </div>
 
-              {/* Service Labor price */}
+              {/* Service Labor price - Cash */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                  Preço da Mão de Obra (Serviço)
+                  Mão de Obra à Vista (Dinheiro/PIX)
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
@@ -730,6 +657,25 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                     value={techForm.servicePrice}
                     disabled={os.status === "DELIVERED"}
                     onChange={(e) => setTechForm((prev) => ({ ...prev, servicePrice: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Service Labor price - Card */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                  Mão de Obra no Cartão (Crédito/Débito)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={techForm.cardServicePrice}
+                    disabled={os.status === "DELIVERED"}
+                    onChange={(e) => setTechForm((prev) => ({ ...prev, cardServicePrice: e.target.value }))}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
                   />
                 </div>
@@ -863,195 +809,80 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
           </div>
         )}
 
-        {/* Tab 3: Parts Budgeting & Stock */}
+        {/* Tab 3: Peça Aplicada & Custo */}
         {activeTab === "parts" && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in duration-200">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
               <Clipboard className="w-4 h-4 text-indigo-400" />
-              <span>Orçamento & Aplicação de Peças</span>
+              <span>Peça Aplicada & Custo de Aquisição</span>
             </h3>
 
-            {/* Toggle custom parts vs catalog search */}
-            {os.status !== "DELIVERED" && (
-              <div className="flex items-center gap-2 mb-4 p-2 bg-indigo-950/20 border border-indigo-900/30 rounded-xl max-w-sm animate-in fade-in duration-200">
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Informe o nome da peça substituída e o respectivo preço de custo de aquisição. 
+              Este valor <strong>não é cobrado do cliente</strong> (pois já está embutido no valor da mão de obra), 
+              mas é <strong>debitado automaticamente do seu faturamento</strong> no fechamento do caixa para calcular o lucro líquido real.
+            </p>
+
+            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+              {/* Part Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Trocada</label>
                 <input
-                  type="checkbox"
-                  id="customPartToggle"
-                  checked={isCustomPart}
-                  onChange={(e) => {
-                    setIsCustomPart(e.target.checked);
-                    setSelectedPart(null);
-                    setPartSearch("");
-                    setPartPrice("");
-                    setCustomPartName("");
-                    setCustomPartCost("0");
-                  }}
-                  className="rounded border-slate-850 bg-slate-950 text-indigo-500 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                  type="text"
+                  placeholder="Ex: Tela Frontal iPhone 11 OEM..."
+                  value={partNameInput}
+                  disabled={os.status === "DELIVERED"}
+                  onChange={(e) => setPartNameInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
                 />
-                <label htmlFor="customPartToggle" className="text-xs font-bold text-slate-300 cursor-pointer select-none">
-                  Peça sob demanda (Comprada apenas para esta O.S.)
-                </label>
               </div>
-            )}
 
-            {/* Stock addition form */}
-            {os.status !== "DELIVERED" && (
-              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 items-end relative">
-                
-                {isCustomPart ? (
-                  <>
-                    {/* Custom part name */}
-                    <div className="md:col-span-1 space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça sob demanda</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: Tela iPhone 11 OEM..."
-                        value={customPartName}
-                        onChange={(e) => setCustomPartName(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none"
-                      />
-                    </div>
-                    {/* Cost price */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo (R$)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={customPartCost}
-                        onChange={(e) => setCustomPartCost(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none font-mono"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  /* Catalog search */
-                  <div className="md:col-span-2 space-y-1.5 relative">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Buscar Peça no Estoque</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Pesquise por nome ou SKU..."
-                        value={partSearch}
-                        onChange={(e) => handlePartSearch(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none"
-                      />
-                      {selectedPart && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
-                          <span>Qtd Disp: {selectedPart.quantity}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Dropdown list */}
-                    {filteredParts.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-[#090e1a] border border-slate-800 rounded-xl max-h-52 overflow-y-auto z-40 shadow-2xl divide-y divide-slate-800/60 text-xs">
-                        {filteredParts.map((p) => (
-                          <div
-                            key={p.productId}
-                            onClick={() => selectPart(p)}
-                            className="px-4 py-2.5 hover:bg-slate-800/40 cursor-pointer flex justify-between items-center"
-                          >
-                            <div>
-                              <span className="font-bold text-white block">{p.name}</span>
-                              <span className="text-slate-500 font-mono text-[10px]">SKU: {p.sku}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-emerald-400 font-bold block">R$ {p.price.toFixed(2)}</span>
-                              <span className="text-slate-500 text-[10px] font-semibold">Estoque: {p.quantity}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Qty */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Quantidade</label>
+              {/* Part Cost */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo da Peça (R$)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
                   <input
                     type="number"
-                    min="1"
-                    value={partQty}
-                    onChange={(e) => setPartQty(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none font-mono"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={partCostInput}
+                    disabled={os.status === "DELIVERED"}
+                    onChange={(e) => setPartCostInput(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold"
                   />
                 </div>
+              </div>
+            </div>
 
-                {/* Price / Sale price */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço Venda Unitário (R$)</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={partPrice}
-                        onChange={(e) => setPartPrice(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none font-mono font-semibold"
-                      />
-                    </div>
-                    <Button
-                      onClick={isCustomPart ? handleAddCustomPart : handleAddPart}
-                      disabled={isPending}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold p-2.5 rounded-xl shrink-0"
-                    >
-                      {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-
+            {/* Save Button */}
+            {os.status !== "DELIVERED" && (
+              <div className="flex justify-end pt-2">
+                <Button
+                  onClick={handleUpdatePart}
+                  disabled={isPending}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
+                  icon={Save}
+                >
+                  {isPending ? "Salvando..." : "Salvar Peça & Custo"}
+                </Button>
               </div>
             )}
 
-            {/* List of applied parts */}
-            <div className="bg-slate-950/40 border border-slate-800 rounded-2xl overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#030712] border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="px-6 py-3">Item / Peça</th>
-                    <th className="px-6 py-3">Quantidade</th>
-                    <th className="px-6 py-3">Valor Unitário</th>
-                    <th className="px-6 py-3">Valor Total</th>
-                    {os.status !== "DELIVERED" && <th className="px-6 py-3 text-right">Ação</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/40 text-slate-300">
-                  {os.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-6 text-center text-slate-500 italic">
-                        Nenhuma peça aplicada a esta Ordem de Serviço ainda.
-                      </td>
-                    </tr>
-                  ) : (
-                    os.items.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-800/10">
-                        <td className="px-6 py-3.5">
-                          <span className="font-bold text-white block">{item.product.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">SKU: {item.product.sku}</span>
-                        </td>
-                        <td className="px-6 py-3.5 font-mono text-sm font-bold text-white">{item.quantity}</td>
-                        <td className="px-6 py-3.5 font-mono text-white">R$ {item.unitPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-3.5 font-mono font-extrabold text-white">
-                          R$ {(item.quantity * item.unitPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </td>
-                        {os.status !== "DELIVERED" && (
-                          <td className="px-6 py-3.5 text-right">
-                            <button
-                              onClick={() => handleRemovePart(item.id)}
-                              className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            {/* Visual Feedback Box */}
+            <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-2 text-xs">
+              <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Informações Atuais da O.S.</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <span className="text-slate-400">Peça Registrada: </span>
+                  <span className="font-semibold text-white">{initialChecklistObj.partName ? initialChecklistObj.partName : "Nenhuma registrada"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Custo Registrado: </span>
+                  <span className="font-mono font-bold text-amber-500">R$ {(os.partsPrice || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1075,12 +906,12 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                   <div className="space-y-2.5 text-xs mt-3">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Mão de Obra (Serviço):</span>
-                      <span className="font-mono text-slate-200 font-semibold">R$ {servicePriceNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      <span className="font-mono text-slate-200 font-semibold">R$ {activeLaborPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                     </div>
 
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Peças Aplicadas (Preço de Venda):</span>
-                      <span className="font-mono text-slate-200 font-semibold">R$ {partsPriceNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      <span className="text-slate-400">Peças Aplicadas:</span>
+                      <span className="font-mono text-slate-200 font-semibold">R$ 0,00 <span className="text-[10px] text-slate-500 font-bold">(Inclusas no serviço)</span></span>
                     </div>
 
                     {prepaymentNum > 0 && (
@@ -1119,43 +950,46 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                   </div>
                 </div>
 
-                {/* DETALHAMENTO DE CUSTOS E LUCRO REAL */}
-                <div className="border-t border-slate-800 pt-4 space-y-3">
-                  <h4 className="font-bold text-amber-500 uppercase tracking-wider text-xs border-b border-slate-800/80 pb-2">Detalhamento Contábil (Custo & Lucro)</h4>
+                {/* Detalhamento Contábil (Custo & Lucro) */}
+                <div className="border-t border-slate-800 pt-4 mt-4 space-y-2.5 text-xs">
+                  <h4 className="font-bold text-white uppercase tracking-wider text-[10px] pb-1 flex items-center gap-1.5 text-indigo-400">
+                    <Clipboard className="w-3.5 h-3.5" />
+                    <span>Detalhamento Contábil (Custo & Lucro)</span>
+                  </h4>
                   
-                  <div className="space-y-2.5 text-xs mt-3">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Custo das Peças (Estoque):</span>
-                      <span className="font-mono val-cost text-xs">R$ {((os as any).items || []).reduce((sum: number, item: any) => sum + (item.quantity * (item.unitCost || 0)), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Custo das Peças (Estoque):</span>
+                    <span className="font-mono text-slate-200 font-semibold">
+                      R$ {totalPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
 
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Custo Terceirizado / Adicional:</span>
-                      <span className="font-mono val-cost text-xs">R$ {(parseFloat(osCost) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Custo Terceirizado / Adicional:</span>
+                    <span className="font-mono text-slate-200 font-semibold">
+                      R$ {outsourcedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
 
-                    <div className="flex justify-between border-t border-slate-800/60 pt-2 text-xs font-bold text-slate-300">
-                      <span>Custo Total Consolidado:</span>
-                      <span className="font-mono val-cost text-xs">
-                        R$ {(((os as any).items || []).reduce((sum: number, item: any) => sum + (item.quantity * (item.unitCost || 0)), 0) + (parseFloat(osCost) || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
+                  <div className="flex justify-between border-t border-slate-800/60 pt-1.5">
+                    <span className="text-slate-400 font-bold">Custo Total Consolidado:</span>
+                    <span className="font-mono text-slate-200 font-bold">
+                      R$ {consolidatedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
 
-                    {/* Lucro Líquido Real da OS */}
-                    {(() => {
-                      const totalCost = ((os as any).items || []).reduce((sum: number, item: any) => sum + (item.quantity * (item.unitCost || 0)), 0) + (parseFloat(osCost) || 0);
-                      const profit = finalTotalAmount - totalCost;
-                      const profitMargin = finalTotalAmount > 0 ? (profit / finalTotalAmount) * 100 : 0;
-                      return (
-                        <div className={`flex justify-between border-t border-slate-800 pt-3 text-sm font-bold p-2.5 rounded-xl ${profit >= 0 ? "bg-emerald-500/10 border border-emerald-500/10" : "bg-rose-500/10 border border-rose-500/10"}`}>
-                          <span>Lucro Líquido Real da O.S.:</span>
-                          <span className={`font-mono font-black text-right ${profit >= 0 ? "val-positive" : "val-negative"}`}>
-                            R$ {profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            <span className="text-[10px] block font-semibold">Margem: {profitMargin.toFixed(1)}%</span>
-                          </span>
-                        </div>
-                      );
-                    })()}
+                  <div className="flex justify-between border-t border-slate-800 pt-2 text-xs">
+                    <span className="text-indigo-400 font-bold uppercase tracking-wider">Lucro Líquido Real da O.S.:</span>
+                    <span className="font-mono text-indigo-400 font-black text-sm">
+                      R$ {netProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500">Margem de Lucro:</span>
+                    <span className="font-mono text-slate-400 font-semibold">
+                      {margin.toFixed(1)}%
+                    </span>
                   </div>
                 </div>
               </div>

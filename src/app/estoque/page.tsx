@@ -37,7 +37,14 @@ export default async function Estoque() {
   });
 
   const rawProducts = await prisma.product.findMany({
-    where: { companyId: session.companyId },
+    where: { 
+      companyId: session.companyId,
+      NOT: {
+        sku: {
+          startsWith: "OS-CUSTOM-"
+        }
+      }
+    },
     include: {
       stocks: {
         include: { unit: true }

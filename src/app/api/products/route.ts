@@ -14,7 +14,12 @@ export async function GET() {
 
     const products = await prisma.product.findMany({
       where: {
-        companyId: session.companyId
+        companyId: session.companyId,
+        NOT: {
+          sku: {
+            startsWith: "OS-CUSTOM-"
+          }
+        }
       },
       include: {
         stocks: {

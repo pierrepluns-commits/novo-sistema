@@ -68,6 +68,7 @@ export default async function EditOSPage({ params }: PageProps) {
     name: item.product.name,
     sku: item.product.sku,
     price: item.product.price,
+    cost: item.product.cost,
     quantity: item.quantity,
   }));
 

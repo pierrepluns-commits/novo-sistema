@@ -199,7 +199,8 @@ export async function updateServiceOrderTechnicalAction(
   warrantyPeriod: number,
   warrantyTerms: string,
   userId?: string,
-  technicianName?: string
+  technicianName?: string,
+  cardServicePrice?: number
 ) {
   const session = await getSession();
   if (!session || !session.companyId) {
@@ -214,9 +215,9 @@ export async function updateServiceOrderTechnicalAction(
     if (!os) return { error: "O.S. não encontrada." };
     if (os.status === "DELIVERED") return { error: "Não é possível alterar uma O.S. já entregue." };
 
-    const totalAmount = servicePrice + os.partsPrice - os.discount;
+    const totalAmount = servicePrice - os.discount;
 
-    // Parse existing checklist and inject technicianName
+    // Parse existing checklist and inject technicianName and cardServicePrice
     let checklistObj: Record<string, any> = {};
     try {
       checklistObj = JSON.parse(os.checklist || "{}");
@@ -226,6 +227,9 @@ export async function updateServiceOrderTechnicalAction(
 
     if (technicianName !== undefined) {
       checklistObj.technicianName = technicianName.trim();
+    }
+    if (cardServicePrice !== undefined) {
+      checklistObj.cardServicePrice = cardServicePrice;
     }
 
     await prisma.serviceOrder.update({
@@ -325,7 +329,8 @@ export async function addPartToServiceOrderAction(
   osId: string,
   productId: string,
   quantity: number,
-  unitPrice: number
+  unitPrice: number,
+  unitCost?: number
 ) {
   const session = await getSession();
   if (!session || !session.companyId) {
@@ -353,7 +358,7 @@ export async function addPartToServiceOrderAction(
       return { error: `Estoque insuficiente. Disponível no estoque: ${stock ? stock.quantity : 0} unidades.` };
     }
 
-    const itemCost = stock.product?.cost || 0;
+    const itemCost = unitCost !== undefined ? unitCost : (stock.product?.cost || 0);
 
     await prisma.$transaction(async (tx) => {
       // Verifica se a peça já existe na O.S.
@@ -365,7 +370,11 @@ export async function addPartToServiceOrderAction(
         // Atualiza quantidade
         await tx.serviceOrderItem.update({
           where: { id: existingItem.id },
-          data: { quantity: existingItem.quantity + quantity },
+          data: { 
+            quantity: existingItem.quantity + quantity,
+            unitCost: itemCost,
+            unitPrice: unitPrice
+          },
         });
       } else {
         // Cria item
@@ -382,7 +391,7 @@ export async function addPartToServiceOrderAction(
 
       // Atualiza valores totais na O.S.
       const partsTotal = os.partsPrice + (quantity * unitPrice);
-      const totalAmount = os.servicePrice + partsTotal - os.discount;
+      const totalAmount = os.servicePrice - os.discount;
 
       await tx.serviceOrder.update({
         where: { id: osId },
@@ -430,7 +439,7 @@ export async function removePartFromServiceOrderAction(itemId: string) {
       });
 
       const partsTotal = Math.max(0, item.serviceOrder.partsPrice - itemTotal);
-      const totalAmount = item.serviceOrder.servicePrice + partsTotal - item.serviceOrder.discount;
+      const totalAmount = item.serviceOrder.servicePrice - item.serviceOrder.discount;
 
       await tx.serviceOrder.update({
         where: { id: osId },
@@ -470,8 +479,24 @@ export async function finishAndBillServiceOrderAction(
     if (!os) return { error: "O.S. não encontrada." };
     if (os.status === "DELIVERED") return { error: "Esta O.S. já foi entregue e faturada." };
 
+    // Get cardServicePrice from checklist
+    let checklistObj: Record<string, any> = {};
+    try {
+      checklistObj = JSON.parse(os.checklist || "{}");
+    } catch {
+      checklistObj = {};
+    }
+
+    const cardPrice = checklistObj.cardServicePrice !== undefined && checklistObj.cardServicePrice !== null
+      ? parseFloat(checklistObj.cardServicePrice)
+      : os.servicePrice;
+
+    // Determine the base labor price based on payment method
+    const isCard = paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD";
+    const baseLaborPrice = isCard ? cardPrice : os.servicePrice;
+
     // Calcular valores finais a receber
-    const totalAmount = os.servicePrice + os.partsPrice - discount;
+    const totalAmount = baseLaborPrice - discount;
     const remainder = Math.max(0, totalAmount - os.prepayment);
 
     // Buscar caixa aberto
@@ -560,7 +585,7 @@ export async function finishAndBillServiceOrderAction(
       }
 
       // 4. Registrar custo das peças como CMV na O.S. (Gera transparência no lucro total do mês)
-      const totalPartsCost = os.items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
+      const totalPartsCost = os.partsPrice || 0;
       if (totalPartsCost > 0 && register) {
         await tx.financialTransaction.create({
           data: {
@@ -606,6 +631,7 @@ export async function finishAndBillServiceOrderAction(
           warrantyExpiresAt,
           warrantyStatus: os.warrantyPeriod > 0 ? "ACTIVE" : "VOIDED",
           totalAmount,
+          servicePrice: baseLaborPrice,
         },
       });
     });
@@ -691,15 +717,6 @@ export async function addCustomPartToServiceOrderAction(
         },
       });
 
-      // Criar o estoque inicial para essa unidade (igual à quantidade solicitada para que a baixa funcione)
-      await tx.stock.create({
-        data: {
-          productId: newProduct.id,
-          unitId: selectedUnitId,
-          quantity: quantity,
-        },
-      });
-
       // Adicionar o item à O.S.
       await tx.serviceOrderItem.create({
         data: {
@@ -713,7 +730,7 @@ export async function addCustomPartToServiceOrderAction(
 
       // Atualizar totais na O.S.
       const partsTotal = os.partsPrice + (quantity * unitPrice);
-      const totalAmount = os.servicePrice + partsTotal - os.discount;
+      const totalAmount = os.servicePrice - os.discount;
 
       await tx.serviceOrder.update({
         where: { id: osId },
@@ -729,5 +746,46 @@ export async function addCustomPartToServiceOrderAction(
   } catch (error: any) {
     console.error(error);
     return { error: "Erro ao adicionar peça sob demanda: " + error.message };
+  }
+}
+
+// 9. Update Service Order simple part name and cost (stored in partsPrice and checklist.partName)
+export async function updateServiceOrderPartAction(osId: string, partName: string, partCost: number) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  try {
+    const os = await prisma.serviceOrder.findUnique({
+      where: { id: osId, companyId: session.companyId },
+    });
+
+    if (!os) return { error: "O.S. não encontrada." };
+    if (os.status === "DELIVERED") return { error: "Não é possível alterar uma O.S. já entregue." };
+
+    // Parse checklist and set partName
+    let checklistObj: Record<string, any> = {};
+    try {
+      checklistObj = JSON.parse(os.checklist || "{}");
+    } catch {
+      checklistObj = {};
+    }
+
+    checklistObj.partName = partName.trim();
+
+    await prisma.serviceOrder.update({
+      where: { id: osId },
+      data: {
+        partsPrice: partCost || 0,
+        checklist: JSON.stringify(checklistObj),
+      },
+    });
+
+    revalidatePath(`/os/editar/${osId}`);
+    revalidatePath("/os");
+    return { success: true };
+  } catch (error: any) {
+    return { error: "Erro ao atualizar peça da O.S.: " + error.message };
   }
 }

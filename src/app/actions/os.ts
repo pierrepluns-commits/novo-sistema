@@ -489,18 +489,28 @@ export async function finishAndBillServiceOrderAction(
       checklistObj = {};
     }
 
-    const currentServicePrice = servicePrice !== undefined ? servicePrice : os.servicePrice;
-    if (cardServicePrice !== undefined) {
-      checklistObj.cardServicePrice = cardServicePrice;
-    }
+    const currentServicePrice = servicePrice !== undefined && servicePrice > 0 ? servicePrice : os.servicePrice;
+    
+    // Store original cash service price so we can restore it if reopened
+    checklistObj.cashServicePrice = currentServicePrice;
 
-    const cardPrice = checklistObj.cardServicePrice !== undefined && checklistObj.cardServicePrice !== null
-      ? parseFloat(checklistObj.cardServicePrice)
-      : currentServicePrice;
+    let finalCardServicePrice = cardServicePrice !== undefined && cardServicePrice > 0 ? cardServicePrice : 0;
+    if (finalCardServicePrice > 0) {
+      checklistObj.cardServicePrice = finalCardServicePrice;
+    } else {
+      const savedCardVal = checklistObj.cardServicePrice !== undefined && checklistObj.cardServicePrice !== null
+        ? parseFloat(checklistObj.cardServicePrice)
+        : 0;
+      if (savedCardVal > 0) {
+        finalCardServicePrice = savedCardVal;
+      } else {
+        finalCardServicePrice = currentServicePrice;
+      }
+    }
 
     // Determine the base labor price based on payment method
     const isCard = paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD";
-    const baseLaborPrice = isCard ? cardPrice : currentServicePrice;
+    const baseLaborPrice = isCard ? finalCardServicePrice : currentServicePrice;
 
     // Calcular valores finais a receber
     const totalAmount = baseLaborPrice - discount;
@@ -795,5 +805,102 @@ export async function updateServiceOrderPartAction(osId: string, partName: strin
     return { success: true };
   } catch (error: any) {
     return { error: "Erro ao atualizar peça da O.S.: " + error.message };
+  }
+}
+
+// 10. Reopen Service Order
+export async function reopenServiceOrderAction(osId: string) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  try {
+    const os = await prisma.serviceOrder.findUnique({
+      where: { id: osId, companyId: session.companyId },
+      include: { items: true },
+    });
+
+    if (!os) return { error: "O.S. não encontrada." };
+    if (os.status !== "DELIVERED") return { error: "Esta O.S. não está finalizada/faturada." };
+
+    // Parse checklist to restore cash service price if available
+    let checklistObj: Record<string, any> = {};
+    try {
+      checklistObj = JSON.parse(os.checklist || "{}");
+    } catch {
+      checklistObj = {};
+    }
+
+    const originalCashPrice = checklistObj.cashServicePrice !== undefined && checklistObj.cashServicePrice !== null
+      ? parseFloat(checklistObj.cashServicePrice)
+      : os.servicePrice;
+
+    // Clean up checklist config
+    delete checklistObj.cashServicePrice;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Restaurar o estoque físico
+      for (const item of os.items) {
+        const stock = await tx.stock.findUnique({
+          where: { productId_unitId: { productId: item.productId, unitId: os.unitId } },
+        });
+
+        if (stock) {
+          await tx.stock.update({
+            where: { id: stock.id },
+            data: { quantity: { increment: item.quantity } },
+          });
+        }
+      }
+
+      // 2. Remover movimentações de estoque associadas a esta O.S.
+      await tx.stockMovement.deleteMany({
+        where: {
+          referenceId: os.id,
+          type: "OUT",
+        },
+      });
+
+      // 3. Remover lançamentos de fluxo de caixa criados no faturamento
+      await tx.financialTransaction.deleteMany({
+        where: {
+          companyId: session.companyId!,
+          unitId: os.unitId,
+          OR: [
+            { description: { startsWith: `Fecham. O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Taxa Cartão - O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Custo Peças O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Custo Terceirizado O.S. #${os.osNumber}` } },
+          ],
+        },
+      });
+
+      // 4. Reverter status da O.S.
+      await tx.serviceOrder.update({
+        where: { id: osId },
+        data: {
+          status: "IN_PROGRESS",
+          paymentMethod: null,
+          installments: 1,
+          cardFee: 0,
+          warrantyExpiresAt: null,
+          warrantyStatus: "ACTIVE",
+          servicePrice: originalCashPrice,
+          totalAmount: originalCashPrice - os.discount,
+          checklist: JSON.stringify(checklistObj),
+        },
+      });
+    });
+
+    revalidatePath(`/os/editar/${osId}`);
+    revalidatePath("/os");
+    revalidatePath("/financeiro");
+    revalidatePath("/estoque");
+    revalidatePath("/caixa");
+
+    return { success: true };
+  } catch (error: any) {
+    return { error: "Erro ao reabrir Ordem de Serviço: " + error.message };
   }
 }

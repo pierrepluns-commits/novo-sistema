@@ -15,7 +15,8 @@ import {
   updateServiceOrderCostAction,
   finishAndBillServiceOrderAction,
   cancelServiceOrderAction,
-  updateServiceOrderPartAction
+  updateServiceOrderPartAction,
+  reopenServiceOrderAction
 } from "../../../actions/os";
 import Link from "next/link";
 
@@ -330,6 +331,20 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
     });
   };
 
+  const handleReopenOS = async () => {
+    if (!confirm("Tem certeza que deseja reabrir esta Ordem de Serviço? Os lançamentos de faturamento no caixa atual e as baixas de estoque físico correspondentes serão estornados/excluídos.")) return;
+    setGlobalMessage(null);
+    startTransition(async () => {
+      const res = await reopenServiceOrderAction(os.id);
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+      } else {
+        setGlobalMessage({ text: "Ordem de Serviço reaberta com sucesso! Agora você pode editar os dados e faturar novamente.", type: "success" });
+        router.refresh();
+      }
+    });
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header with quick stats */}
@@ -354,6 +369,16 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
               Imprimir Via
             </Button>
           </Link>
+          {os.status === "DELIVERED" && (
+            <Button 
+              onClick={handleReopenOS} 
+              variant="ghost" 
+              className="text-amber-400 hover:bg-amber-500/10 border border-amber-500/10 font-bold"
+              disabled={isPending}
+            >
+              {isPending ? "Reabrindo..." : "Reabrir O.S."}
+            </Button>
+          )}
           {os.status !== "DELIVERED" && (
             <Button 
               onClick={handleCancelOS} 
@@ -723,7 +748,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                       step="0.01"
                       value={osCost}
                       onChange={(e) => setOsCost(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-white"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-white"
                     />
                   </div>
                 </div>
@@ -825,9 +850,9 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
               mas é <strong>debitado automaticamente do seu faturamento</strong> no fechamento do caixa para calcular o lucro líquido real.
             </p>
 
-            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-end">
               {/* Part Name */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 flex-[2] w-full">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Trocada</label>
                 <input
                   type="text"
@@ -835,12 +860,12 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                   value={partNameInput}
                   disabled={os.status === "DELIVERED"}
                   onChange={(e) => setPartNameInput(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold text-white"
                 />
               </div>
 
               {/* Part Cost */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 flex-1 w-full">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo da Peça (R$)</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
@@ -852,25 +877,23 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                     value={partCostInput}
                     disabled={os.status === "DELIVERED"}
                     onChange={(e) => setPartCostInput(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Save Button */}
-            {os.status !== "DELIVERED" && (
-              <div className="flex justify-end pt-2">
+              {/* Save Button */}
+              {os.status !== "DELIVERED" && (
                 <Button
                   onClick={handleUpdatePart}
                   disabled={isPending}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-[42px] px-5 py-2.5 rounded-xl shrink-0 cursor-pointer active:scale-95 transition-all w-full md:w-auto"
                   icon={Save}
                 >
-                  {isPending ? "Salvando..." : "Salvar Peça & Custo"}
+                  {isPending ? "Salvando..." : "Salvar Peça"}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Visual Feedback Box */}
             <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-2 text-xs">

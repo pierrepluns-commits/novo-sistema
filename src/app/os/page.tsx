@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { 
   Plus, Search, Edit, Printer, Wrench, ClipboardList, 
-  ArrowRight, DollarSign, Calendar, Clock, Contact, AlertCircle 
+  ArrowRight, DollarSign, Calendar, Clock, Contact, AlertCircle, Phone
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -189,9 +189,10 @@ export default async function OSPage({ searchParams }: PageProps) {
         </Button>
       </form>
 
-      {/* OS Table Board */}
+      {/* OS Table Board / Cards */}
       <div className="bg-[#090e1a] border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#030712] border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
               <tr>
@@ -221,11 +222,8 @@ export default async function OSPage({ searchParams }: PageProps) {
               ) : (
                 osList.map((os) => {
                   const badge = statusMap[os.status] || { label: os.status, bg: "bg-slate-800", text: "text-slate-400", border: "border-slate-700" };
-                  
-                  // Calculate financial remainder
                   const remainder = Math.max(0, os.totalAmount - os.prepayment);
                   
-                  // Calculate warranty info
                   let warrantyBadge = "-";
                   if (os.status === "DELIVERED" && os.warrantyPeriod > 0) {
                     if (os.warrantyStatus === "ACTIVE") {
@@ -243,7 +241,6 @@ export default async function OSPage({ searchParams }: PageProps) {
 
                   return (
                     <tr key={os.id} className="hover:bg-slate-800/30 transition-colors group">
-                      {/* OS Number */}
                       <td className="px-6 py-4">
                         <Link href={`/os/editar/${os.id}`}>
                           <span className="font-mono font-bold text-white bg-[#111827] border border-slate-800 px-2.5 py-1.5 rounded-lg group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all shadow-inner">
@@ -252,7 +249,6 @@ export default async function OSPage({ searchParams }: PageProps) {
                         </Link>
                       </td>
                       
-                      {/* Client */}
                       <td className="px-6 py-4">
                         <div className="font-bold text-white leading-snug">{os.client.name}</div>
                         <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5">
@@ -261,7 +257,6 @@ export default async function OSPage({ searchParams }: PageProps) {
                         </div>
                       </td>
 
-                      {/* Equipment details */}
                       <td className="px-6 py-4">
                         <div className="font-bold text-white flex items-center gap-1.5">
                           <Wrench className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
@@ -272,19 +267,16 @@ export default async function OSPage({ searchParams }: PageProps) {
                         </div>
                       </td>
 
-                      {/* Status badge */}
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-0.5 text-[10px] font-bold border rounded-md ${badge.bg} ${badge.text} ${badge.border}`}>
                           {badge.label}
                         </span>
                       </td>
 
-                      {/* Total price */}
                       <td className="px-6 py-4 text-white font-extrabold text-sm">
                         R$ {os.totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </td>
 
-                      {/* Prepayment / Remaining */}
                       <td className="px-6 py-4">
                         {os.prepayment > 0 ? (
                           <div className="space-y-0.5">
@@ -300,7 +292,6 @@ export default async function OSPage({ searchParams }: PageProps) {
                         )}
                       </td>
 
-                      {/* Warranty info */}
                       <td className="px-6 py-4">
                         {os.warrantyPeriod > 0 ? (
                           <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold rounded border ${
@@ -315,12 +306,11 @@ export default async function OSPage({ searchParams }: PageProps) {
                         )}
                       </td>
 
-                      {/* Actions */}
                       <td className="px-6 py-4 text-right space-x-2">
                         <Link href={`/os/imprimir/${os.id}`}>
                           <button 
                             title="Imprimir Via"
-                            className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-700/80 transition-all active:scale-95"
+                            className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-700/80 transition-all active:scale-95 cursor-pointer"
                           >
                             <Printer className="w-4 h-4" />
                           </button>
@@ -328,7 +318,7 @@ export default async function OSPage({ searchParams }: PageProps) {
                         <Link href={`/os/editar/${os.id}`}>
                           <button 
                             title="Ver / Editar Detalhes"
-                            className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all active:scale-95"
+                            className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all active:scale-95 cursor-pointer"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -340,6 +330,116 @@ export default async function OSPage({ searchParams }: PageProps) {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards View */}
+        <div className="md:hidden divide-y divide-slate-800/30">
+          {osList.length === 0 ? (
+            <div className="py-12 text-center text-slate-500">
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <ClipboardList className="w-8 h-8 text-slate-700 animate-pulse" />
+                <p className="font-semibold text-slate-400 text-sm">Nenhuma O.S. encontrada</p>
+              </div>
+            </div>
+          ) : (
+            osList.map((os) => {
+              const badge = statusMap[os.status] || { label: os.status, bg: "bg-slate-800", text: "text-slate-400", border: "border-slate-700" };
+              const remainder = Math.max(0, os.totalAmount - os.prepayment);
+              
+              let warrantyBadge = "-";
+              if (os.status === "DELIVERED" && os.warrantyPeriod > 0) {
+                if (os.warrantyStatus === "ACTIVE") {
+                  if (os.warrantyExpiresAt && new Date(os.warrantyExpiresAt) < new Date()) {
+                    warrantyBadge = "Expirada";
+                  } else {
+                    warrantyBadge = `Ativa (${os.warrantyPeriod}d)`;
+                  }
+                } else if (os.warrantyStatus === "VOIDED") {
+                  warrantyBadge = "Sem Garantia";
+                }
+              } else if (os.warrantyPeriod > 0) {
+                warrantyBadge = `Pendente (${os.warrantyPeriod}d)`;
+              }
+
+              return (
+                <div key={os.id} className="p-4 space-y-3.5 hover:bg-slate-800/10 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <Link href={`/os/editar/${os.id}`}>
+                      <span className="font-mono font-bold text-white bg-[#111827] border border-slate-800 px-2 py-1 rounded-lg text-xs hover:text-indigo-400 hover:border-indigo-500/30 transition-all shadow-inner">
+                        #{String(os.osNumber).padStart(4, "0")}
+                      </span>
+                    </Link>
+                    <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold border rounded-md ${badge.bg} ${badge.text} ${badge.border}`}>
+                      {badge.label}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <Wrench className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span>{os.equipmentBrand} {os.equipmentModel}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium">
+                      {os.equipmentType} {os.equipmentColor ? `| ${os.equipmentColor}` : ""}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-900/40 pt-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Cliente</span>
+                      <span className="font-bold text-slate-200 block truncate max-w-[120px]">{os.client.name}</span>
+                      <a 
+                        href={`https://wa.me/55${os.client.phone.replace(/\D/g, "")}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-emerald-400 hover:underline font-bold"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>{os.client.phone}</span>
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Financeiro</span>
+                      <span className="font-extrabold text-white block">R$ {os.totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      {os.prepayment > 0 ? (
+                        <span className="text-[9px] text-emerald-400 font-bold block">Sinal: R$ {os.prepayment.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-[9px] text-slate-500 block">Sem sinal</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2.5 border-t border-slate-800/40">
+                    <div>
+                      {os.warrantyPeriod > 0 && warrantyBadge !== "-" && (
+                        <span className={`inline-flex px-1.5 py-0.5 text-[8px] font-black rounded border ${
+                          os.warrantyStatus === "ACTIVE" 
+                            ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" 
+                            : "bg-slate-800 text-slate-500 border-slate-700/50"
+                        }`}>
+                          Garantia: {warrantyBadge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Link href={`/os/imprimir/${os.id}`}>
+                        <button className="flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition-all active:scale-95 cursor-pointer">
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Imprimir</span>
+                        </button>
+                      </Link>
+                      <Link href={`/os/editar/${os.id}`}>
+                        <button className="flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer">
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Editar</span>
+                        </button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

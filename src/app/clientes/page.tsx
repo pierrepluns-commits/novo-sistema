@@ -291,11 +291,20 @@ export default function ClientesPage() {
         </Button>
       </form>
 
+      {/* Backdrop for mobile drawer (only visible when a client is selected and viewport is < xl) */}
+      {selectedClient && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 xl:hidden transition-opacity duration-300"
+          onClick={() => setSelectedClient(null)}
+        />
+      )}
+
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        {/* Clients Table */}
+        {/* Clients List/Table */}
         <div className="xl:col-span-2 bg-[#090e1a] border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#030712] border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
@@ -382,10 +391,111 @@ export default function ClientesPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Cards View */}
+          <div className="md:hidden divide-y divide-slate-800/30">
+            {isPending && clients.length === 0 ? (
+              <div className="py-8 text-center text-slate-500">
+                <div className="flex justify-center items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                  <span>Carregando clientes...</span>
+                </div>
+              </div>
+            ) : clients.length === 0 ? (
+              <div className="py-8 text-center text-slate-500">
+                Nenhum cliente encontrado.
+              </div>
+            ) : (
+              clients.map((client) => {
+                const hasLojista = client.name.endsWith(" (Lojista)");
+                const cleanName = hasLojista ? client.name.substring(0, client.name.length - 10) : client.name;
+                return (
+                  <div 
+                    key={client.id}
+                    onClick={() => handleOpenHistory(client)}
+                    className={`p-4 space-y-3 active:bg-slate-850/40 transition-colors ${selectedClient?.id === client.id ? 'bg-[#162032]/30 border-l-2 border-pink-500' : ''}`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-bold text-white text-sm flex items-center gap-1.5">
+                          {cleanName}
+                          {hasLojista && (
+                            <span className="text-[9px] bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                              Lojista
+                            </span>
+                          )}
+                        </div>
+                        {client.document && (
+                          <div className="text-[10px] text-slate-500 font-mono mt-0.5">Doc: {client.document}</div>
+                        )}
+                      </div>
+                      <ArrowUpRight className="w-4 h-4 text-slate-600" />
+                    </div>
+
+                    <div className="flex flex-col gap-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                        <a 
+                          href={`https://wa.me/55${client.phone.replace(/\D/g, "")}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-emerald-400 hover:underline font-semibold"
+                        >
+                          {client.phone}
+                        </a>
+                      </div>
+                      {client.email && (
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Mail className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="truncate">{client.email}</span>
+                        </div>
+                      )}
+                      {client.address && (
+                        <div className="flex items-start gap-2 text-slate-500 text-[11px] leading-tight">
+                          <MapPin className="w-3.5 h-3.5 text-slate-600 mt-0.5 shrink-0" />
+                          <span>{client.address}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/40" onClick={(e) => e.stopPropagation()}>
+                      <Link href={`/os/novo?clientId=${client.id}`} className="flex-1">
+                        <button className="w-full flex justify-center items-center gap-1.5 py-2 px-3 rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer">
+                          <ClipboardList className="w-3.5 h-3.5" />
+                          <span>Nova O.S.</span>
+                        </button>
+                      </Link>
+                      <button 
+                        onClick={() => openEditModal(client)}
+                        className="flex-1 flex justify-center items-center gap-1.5 py-2 px-3 rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Editar</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(client.id)}
+                        className="p-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* Sidebar Slideover/Panel for Client History Timeline */}
-        <div className="bg-[#090e1a] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6 min-h-[450px]">
+        {/* Client History Timeline Panel */}
+        <div className={`
+          bg-[#090e1a] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6 min-h-[450px]
+          xl:relative xl:translate-x-0 xl:w-auto xl:h-auto xl:z-0 xl:flex xl:flex-col
+          fixed inset-y-0 right-0 z-50 w-full max-w-md shadow-2xl transition-transform duration-300 ease-in-out overflow-y-auto
+          ${selectedClient ? 'translate-x-0' : 'translate-x-full xl:translate-x-0'}
+          ${!selectedClient ? 'hidden xl:block' : 'block'}
+        `}>
           {selectedClient ? (
             <div className="space-y-6">
               <div className="flex justify-between items-start border-b border-slate-800 pb-4">

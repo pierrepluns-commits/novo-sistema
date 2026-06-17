@@ -630,7 +630,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                 <Button
                   onClick={handleUpdateGeneral}
                   disabled={isPending}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold w-full md:w-auto"
                   icon={Save}
                 >
                   {isPending ? "Salvando..." : "Atualizar Aparelho & Checklist"}
@@ -735,8 +735,8 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
               <p className="text-[10px] text-slate-400 leading-relaxed">
                 Preencha aqui o valor da comissão a ser paga ao técnico responsável por esta assistência. Este valor é agrupado nos relatórios de comissões e deduzido do faturamento no painel financeiro para calcular o lucro líquido real.
               </p>
-              <div className="flex flex-col md:flex-row gap-4 items-end max-w-md">
-                <div className="space-y-1.5 flex-1">
+              <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-end max-w-md">
+                <div className="space-y-1.5 flex-1 w-full">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                     Comissão do Técnico (R$)
                   </label>
@@ -755,7 +755,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                 <Button
                   onClick={handleUpdateCost}
                   disabled={isPending}
-                  className="bg-amber-600 hover:bg-amber-500 hover:shadow-lg hover:shadow-amber-500/20 text-white font-bold px-5 py-2.5 rounded-xl text-xs shrink-0 cursor-pointer active:scale-95 transition-all"
+                  className="bg-amber-600 hover:bg-amber-500 hover:shadow-lg hover:shadow-amber-500/20 text-white font-bold px-5 py-2.5 rounded-xl text-xs shrink-0 cursor-pointer active:scale-95 transition-all w-full md:w-auto"
                 >
                   {isPending ? "Salvando..." : "Salvar Comissão"}
                 </Button>
@@ -826,7 +826,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                 <Button
                   onClick={handleUpdateTechnical}
                   disabled={isPending}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold w-full md:w-auto"
                   icon={Save}
                 >
                   {isPending ? "Salvando..." : "Salvar Laudo & Status"}
@@ -850,7 +850,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
               mas é <strong>debitado automaticamente do seu faturamento</strong> no fechamento do caixa para calcular o lucro líquido real.
             </p>
 
-            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-end">
+            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end">
               {/* Part Name */}
               <div className="space-y-1.5 flex-[2] w-full">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Trocada</label>

@@ -13,7 +13,9 @@ import {
   ShoppingCart, 
   DollarSign, 
   Inbox, 
-  Settings 
+  Settings,
+  Contact,
+  ClipboardList
 } from "lucide-react";
 import { logoutUser } from "@/app/actions/auth";
 import { usePathname } from "next/navigation";
@@ -48,11 +50,13 @@ export function Header({
 
   const links = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-400", bgHover: "hover:bg-blue-500/10" },
-    { href: "/usuarios", label: "Usuários", icon: Users, color: "text-purple-400", bgHover: "hover:bg-purple-500/10" },
-    { href: "/estoque", label: "Estoque", icon: Package, color: "text-orange-400", bgHover: "hover:bg-orange-500/10" },
-    { href: "/caixa", label: "Caixa", icon: Inbox, color: "text-yellow-400", bgHover: "hover:bg-yellow-500/10" },
     { href: "/pdv", label: "PDV & Vendas", icon: ShoppingCart, color: "text-green-400", bgHover: "hover:bg-green-500/10" },
+    { href: "/caixa", label: "Caixa", icon: Inbox, color: "text-yellow-400", bgHover: "hover:bg-yellow-500/10" },
+    { href: "/estoque", label: "Estoque", icon: Package, color: "text-orange-400", bgHover: "hover:bg-orange-500/10" },
+    { href: "/clientes", label: "Clientes", icon: Contact, color: "text-orange-500", bgHover: "hover:bg-orange-500/10" },
+    { href: "/os", label: "Ordens de Serviço", icon: ClipboardList, color: "text-amber-450", bgHover: "hover:bg-amber-500/10" },
     { href: "/financeiro", label: "Financeiro", icon: DollarSign, color: "text-emerald-400", bgHover: "hover:bg-emerald-500/10" },
+    { href: "/usuarios", label: "Usuários", icon: Users, color: "text-purple-400", bgHover: "hover:bg-purple-500/10" },
     { href: "/configuracao", label: "Configurações", icon: Settings, color: "text-cyan-400", bgHover: "hover:bg-cyan-500/10" },
   ];
 

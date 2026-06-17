@@ -16,14 +16,14 @@ export function PageHeader({ title, onAdd, addLabel = "Adicionar", showBack = tr
   const router = useRouter();
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-slate-800">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-3 md:mb-8 md:pb-4 border-b border-slate-800">
       <div className="flex items-center gap-4">
         {showBack && (
           <Button variant="ghost" onClick={() => router.back()} icon={ArrowLeft} className="px-3 py-2 bg-[#0f172a] border border-slate-800 shadow-sm hover:shadow-md transition-all rounded-xl text-slate-300">
             Voltar
           </Button>
         )}
-        <h1 className="text-3xl font-black tracking-tight text-white">{title}</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white">{title}</h1>
       </div>
       
       {onAdd && (

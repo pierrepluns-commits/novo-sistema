@@ -188,15 +188,6 @@ export function LoginClient({ systemConfig }: LoginClientProps) {
           </button>
         </form>
 
-        <div className="mt-8 text-[11px] text-slate-500 font-semibold text-center border-t border-white/5 pt-5">
-          <p className="mb-2.5 uppercase text-slate-450 tracking-wider">Acessos Rápidos de Teste</p>
-          <div className="grid grid-cols-1 gap-1.5 text-left bg-[#040814] p-3 rounded-xl border border-white/5 font-mono">
-            <div><span style={{ color: primaryColor }}>Dono:</span> admin@empresa.com</div>
-            <div><span style={{ color: primaryColor }}>Caixa:</span> caixa1@empresa.com</div>
-            <div className="mt-1.5 text-center text-slate-400 border-t border-white/5 pt-1.5">SENHA UNIFICADA: senha123</div>
-          </div>
-        </div>
-
         <div className="mt-6 text-center">
           <Link href="/" className="text-xs text-slate-450 hover:text-white transition-colors underline underline-offset-4">
             Voltar para a Página Inicial

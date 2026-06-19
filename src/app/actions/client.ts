@@ -25,6 +25,35 @@ export async function createClientAction(formData: FormData) {
     return { error: "Celular (WhatsApp) é obrigatório." };
   }
 
+  // Pre-validate unique document (CPF/CNPJ) or email within the company
+  try {
+    if (document && document.trim()) {
+      const existingClientByDoc = await prisma.client.findFirst({
+        where: { 
+          companyId: session.companyId,
+          document: document.trim()
+        }
+      });
+      if (existingClientByDoc) {
+        return { error: "Já existe um cliente cadastrado com este CPF/CNPJ." };
+      }
+    }
+    
+    if (email && email.trim()) {
+      const existingClientByEmail = await prisma.client.findFirst({
+        where: {
+          companyId: session.companyId,
+          email: email.trim()
+        }
+      });
+      if (existingClientByEmail) {
+        return { error: "Já existe um cliente cadastrado com este e-mail." };
+      }
+    }
+  } catch (err: any) {
+    return { error: "Erro de validação: " + err.message };
+  }
+
   try {
     const client = await prisma.client.create({
       data: {
@@ -64,6 +93,37 @@ export async function updateClientAction(id: string, formData: FormData) {
   }
   if (!phone || !phone.trim()) {
     return { error: "Celular (WhatsApp) é obrigatório." };
+  }
+
+  // Pre-validate unique document (CPF/CNPJ) or email within the company, excluding the current client
+  try {
+    if (document && document.trim()) {
+      const existingClientByDoc = await prisma.client.findFirst({
+        where: { 
+          companyId: session.companyId,
+          document: document.trim(),
+          id: { not: id }
+        }
+      });
+      if (existingClientByDoc) {
+        return { error: "Já existe um cliente cadastrado com este CPF/CNPJ." };
+      }
+    }
+    
+    if (email && email.trim()) {
+      const existingClientByEmail = await prisma.client.findFirst({
+        where: {
+          companyId: session.companyId,
+          email: email.trim(),
+          id: { not: id }
+        }
+      });
+      if (existingClientByEmail) {
+        return { error: "Já existe um cliente cadastrado com este e-mail." };
+      }
+    }
+  } catch (err: any) {
+    return { error: "Erro de validação: " + err.message };
   }
 
   try {

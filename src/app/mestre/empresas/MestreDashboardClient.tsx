@@ -511,185 +511,189 @@ export function MestreDashboardClient({
       {/* Tab 1: Active Companies */}
       {activeTab === "empresas" && (
         <div className="bg-[#0a0f1c]/80 backdrop-blur-md border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-300">
-          <table className="w-full text-left">
-            <thead className="bg-[#101726] text-slate-350 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
-              <tr>
-                <th className="p-4 font-semibold">Empresa</th>
-                <th className="p-4 font-semibold">CNPJ/Documento</th>
-                <th className="p-4 font-semibold">Administrador principal</th>
-                <th className="p-4 font-semibold">Plano</th>
-                <th className="p-4 font-semibold">Limite Filiais</th>
-                <th className="p-4 font-semibold">Data do Pagamento</th>
-                <th className="p-4 font-semibold">Vencimento</th>
-                <th className="p-4 font-semibold text-right">Ações de Controle</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {companies.map(c => {
-                const admin = c.users[0];
-                const isExpired = c.license?.expiresAt && new Date(c.license.expiresAt) < new Date();
-                
-                // Last payment calculation (represented by license updatedAt)
-                const paymentDate = c.license?.updatedAt 
-                  ? new Date(c.license.updatedAt).toLocaleDateString("pt-BR") 
-                  : new Date(c.createdAt).toLocaleDateString("pt-BR");
-
-                return (
-                  <tr key={c.id} className="hover:bg-slate-800/20 transition-colors">
-                    <td className="p-4">
-                      <p className="font-bold text-white text-sm">{c.name}</p>
-                      <p className="text-[10px] text-slate-500 font-mono">ID: {c.id.split("-")[0]}</p>
-                    </td>
-                    <td className="p-4 text-slate-400 text-sm font-mono">{c.document || "-"}</td>
-                    <td className="p-4">
-                      <p className="text-sm text-slate-300 font-bold">{admin?.name || "Sem Admin"}</p>
-                      <p className="text-xs text-cyan-400 font-mono">{admin?.email}</p>
-                    </td>
-                    <td className="p-4">
-                      <span className="bg-slate-900 text-cyan-400 border border-slate-800 text-xs px-2 py-0.5 rounded font-mono font-bold uppercase">
-                        {c.license?.plan}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-300 font-mono text-sm">
-                      {c.license?.maxUnits || 1} {c.license?.maxUnits === 1 ? "loja" : "lojas"}
-                    </td>
-                    <td className="p-4 text-slate-300 text-sm">
-                      <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        {paymentDate}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-400 text-sm">
-                      {c.license?.expiresAt ? (
-                        <span className={isExpired ? "text-red-400 font-bold" : ""}>
-                          {new Date(c.license.expiresAt).toLocaleDateString("pt-BR")}
-                        </span>
-                      ) : (
-                        <span className="text-cyan-400 font-semibold uppercase text-xs">Vitalícia</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => handleOpenHistory(c)}
-                          className="bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <History className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                          Histórico & Cobrança
-                        </button>
-                        <button
-                          onClick={() => handleOpenEditLicense(c)}
-                          className="bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5 text-emerald-400" />
-                          Editar Licença
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCompany(c.id, c.name)}
-                          className="bg-red-950/30 hover:bg-red-900/40 text-red-400 hover:text-red-350 border border-red-900/30 hover:border-red-800/50 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Trash className="w-3.5 h-3.5 text-red-400" />
-                          Excluir Empresa
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {companies.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="p-12 text-center text-slate-500 text-sm">Nenhuma empresa cadastrada no sistema.</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[1000px]">
+              <thead className="bg-[#101726] text-slate-350 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
+                <tr className="whitespace-nowrap">
+                  <th className="p-4 font-semibold">Empresa</th>
+                  <th className="p-4 font-semibold">CNPJ/Documento</th>
+                  <th className="p-4 font-semibold">Administrador principal</th>
+                  <th className="p-4 font-semibold">Plano</th>
+                  <th className="p-4 font-semibold">Limite Filiais</th>
+                  <th className="p-4 font-semibold">Data do Pagamento</th>
+                  <th className="p-4 font-semibold">Vencimento</th>
+                  <th className="p-4 font-semibold text-right">Ações de Controle</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {companies.map(c => {
+                  const admin = c.users[0];
+                  const isExpired = c.license?.expiresAt && new Date(c.license.expiresAt) < new Date();
+                  
+                  // Last payment calculation (represented by license updatedAt)
+                  const paymentDate = c.license?.updatedAt 
+                    ? new Date(c.license.updatedAt).toLocaleDateString("pt-BR") 
+                    : new Date(c.createdAt).toLocaleDateString("pt-BR");
+
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-800/20 transition-colors">
+                      <td className="p-4">
+                        <p className="font-bold text-white text-sm whitespace-nowrap">{c.name}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">ID: {c.id.split("-")[0]}</p>
+                      </td>
+                      <td className="p-4 text-slate-400 text-sm font-mono whitespace-nowrap">{c.document || "-"}</td>
+                      <td className="p-4">
+                        <p className="text-sm text-slate-300 font-bold whitespace-nowrap">{admin?.name || "Sem Admin"}</p>
+                        <p className="text-xs text-cyan-400 font-mono whitespace-nowrap">{admin?.email}</p>
+                      </td>
+                      <td className="p-4">
+                        <span className="bg-slate-900 text-cyan-400 border border-slate-800 text-xs px-2 py-0.5 rounded font-mono font-bold uppercase whitespace-nowrap">
+                          {c.license?.plan}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-300 font-mono text-sm whitespace-nowrap">
+                        {c.license?.maxUnits || 1} {c.license?.maxUnits === 1 ? "loja" : "lojas"}
+                      </td>
+                      <td className="p-4 text-slate-300 text-sm whitespace-nowrap">
+                        <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          {paymentDate}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-400 text-sm whitespace-nowrap">
+                        {c.license?.expiresAt ? (
+                          <span className={isExpired ? "text-red-400 font-bold" : ""}>
+                            {new Date(c.license.expiresAt).toLocaleDateString("pt-BR")}
+                          </span>
+                        ) : (
+                          <span className="text-cyan-400 font-semibold uppercase text-xs">Vitalícia</span>
+                        )}
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleOpenHistory(c)}
+                            className="bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <History className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                            Histórico & Cobrança
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditLicense(c)}
+                            className="bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-emerald-400" />
+                            Editar Licença
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCompany(c.id, c.name)}
+                            className="bg-red-950/30 hover:bg-red-900/40 text-red-400 hover:text-red-350 border border-red-900/30 hover:border-red-800/50 text-xs font-bold py-1.5 px-3 rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Trash className="w-3.5 h-3.5 text-red-400" />
+                            Excluir Empresa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {companies.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="p-12 text-center text-slate-500 text-sm">Nenhuma empresa cadastrada no sistema.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Tab 2: Incoming Acquisition Requests */}
       {activeTab === "solicitacoes" && (
         <div className="bg-[#0a0f1c]/80 backdrop-blur-md border border-slate-800 rounded-2xl overflow-hidden shadow-xl animate-in fade-in duration-300">
-          <table className="w-full text-left">
-            <thead className="bg-[#101726] text-slate-350 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
-              <tr>
-                <th className="p-4 font-semibold">Cliente / Empresa</th>
-                <th className="p-4 font-semibold">E-mail / Telefone</th>
-                <th className="p-4 font-semibold">Plano Desejado</th>
-                <th className="p-4 font-semibold">Cota Unidades</th>
-                <th className="p-4 font-semibold">Pagamento</th>
-                <th className="p-4 font-semibold">Status Aprov.</th>
-                <th className="p-4 font-semibold text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {requests.map(r => {
-                const isPaid = r.paymentStatus === "PAID";
-                return (
-                  <tr key={r.id} className="hover:bg-slate-800/20 transition-colors">
-                    <td className="p-4">
-                      <p className="font-bold text-white text-sm">{r.companyName}</p>
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                        <User className="w-3.5 h-3.5 text-slate-500" /> {r.ownerName}
-                      </p>
-                    </td>
-                    <td className="p-4">
-                      <p className="text-sm text-slate-300 font-mono">{r.email}</p>
-                      <p className="text-xs text-slate-500">{r.phone || "Sem Telefone"}</p>
-                    </td>
-                    <td className="p-4">
-                      <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs px-2 py-0.5 rounded font-mono font-bold uppercase">
-                        {r.plan}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-300 font-mono text-sm">{r.maxUnits} {r.maxUnits === 1 ? "loja" : "lojas"}</td>
-                    <td className="p-4">
-                      <button
-                        onClick={() => handleTogglePayment(r.id, r.paymentStatus)}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
-                          isPaid 
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20" 
-                            : "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
-                        }`}
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        {isPaid ? "Confirmado (Pago)" : "Aguardando (Pendente)"}
-                      </button>
-                    </td>
-                    <td className="p-4">
-                      {r.status === "APPROVED" ? (
-                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 w-max">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Aprovada
-                        </span>
-                      ) : r.status === "PENDING" ? (
-                        <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 w-max">
-                          <Clock className="w-3.5 h-3.5 animate-pulse" /> Pendente
-                        </span>
-                      ) : (
-                        <span className="bg-slate-800 text-slate-500 px-2 py-0.5 rounded text-xs font-bold">Rejeitada</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                      {r.status === "PENDING" ? (
-                        <button
-                          onClick={() => handleOpenApproval(r)}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-1.5 px-3 rounded-lg shadow-md transition-colors cursor-pointer"
-                        >
-                          Autorizar Licença
-                        </button>
-                      ) : (
-                        <span className="text-slate-500 text-xs font-bold">-</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {requests.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-500 text-sm">Nenhuma solicitação de licença pendente.</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[1000px]">
+              <thead className="bg-[#101726] text-slate-350 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
+                <tr className="whitespace-nowrap">
+                  <th className="p-4 font-semibold">Cliente / Empresa</th>
+                  <th className="p-4 font-semibold">E-mail / Telefone</th>
+                  <th className="p-4 font-semibold">Plano Desejado</th>
+                  <th className="p-4 font-semibold">Cota Unidades</th>
+                  <th className="p-4 font-semibold">Pagamento</th>
+                  <th className="p-4 font-semibold">Status Aprov.</th>
+                  <th className="p-4 font-semibold text-right">Ações</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {requests.map(r => {
+                  const isPaid = r.paymentStatus === "PAID";
+                  return (
+                    <tr key={r.id} className="hover:bg-slate-800/20 transition-colors">
+                      <td className="p-4">
+                        <p className="font-bold text-white text-sm whitespace-nowrap">{r.companyName}</p>
+                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 whitespace-nowrap">
+                          <User className="w-3.5 h-3.5 text-slate-500" /> {r.ownerName}
+                        </p>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-sm text-slate-300 font-mono whitespace-nowrap">{r.email}</p>
+                        <p className="text-xs text-slate-500 whitespace-nowrap">{r.phone || "Sem Telefone"}</p>
+                      </td>
+                      <td className="p-4">
+                        <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs px-2 py-0.5 rounded font-mono font-bold uppercase whitespace-nowrap">
+                          {r.plan}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-300 font-mono text-sm whitespace-nowrap">{r.maxUnits} {r.maxUnits === 1 ? "loja" : "lojas"}</td>
+                      <td className="p-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleTogglePayment(r.id, r.paymentStatus)}
+                          className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
+                            isPaid 
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20" 
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
+                          }`}
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          {isPaid ? "Confirmado (Pago)" : "Aguardando (Pendente)"}
+                        </button>
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        {r.status === "APPROVED" ? (
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 w-max">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Aprovada
+                          </span>
+                        ) : r.status === "PENDING" ? (
+                          <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 w-max">
+                            <Clock className="w-3.5 h-3.5 animate-pulse" /> Pendente
+                          </span>
+                        ) : (
+                          <span className="bg-slate-800 text-slate-500 px-2 py-0.5 rounded text-xs font-bold">Rejeitada</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right whitespace-nowrap">
+                        {r.status === "PENDING" ? (
+                          <button
+                            onClick={() => handleOpenApproval(r)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black py-1.5 px-3 rounded-lg shadow-md transition-colors cursor-pointer"
+                          >
+                            Autorizar Licença
+                          </button>
+                        ) : (
+                          <span className="text-slate-500 text-xs font-bold">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {requests.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-slate-500 text-sm">Nenhuma solicitação de licença pendente.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

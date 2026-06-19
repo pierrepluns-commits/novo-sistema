@@ -25,6 +25,18 @@ export async function createUser(formData: FormData) {
 
   const password_hash = password;
 
+  // Check if email is already in use by any user in the system
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    });
+    if (existingUser) {
+      return { error: "Este e-mail já está cadastrado no sistema." };
+    }
+  } catch (err: any) {
+    return { error: "Erro de validação: " + err.message };
+  }
+
   // createUser logic (bottom part)
   try {
     await prisma.user.create({
@@ -39,11 +51,11 @@ export async function createUser(formData: FormData) {
       },
     });
   } catch (error: any) {
-    console.error(error);
+    console.error("ERRO AO CRIAR USUÁRIO:", error);
     if (error.code === 'P2002') {
       return { error: "Este e-mail já está em uso por outro usuário." };
     }
-    return { error: "Ocorreu um erro interno ao criar o usuário." };
+    return { error: `Erro interno ao criar o usuário: ${error.message || error}` };
   }
 
   revalidatePath("/usuarios");
@@ -81,6 +93,18 @@ export async function updateUser(formData: FormData) {
 
   if (password && password.trim() !== "") {
     dataToUpdate.password_hash = password;
+  }
+
+  // Check if email is already in use by another user in the system
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    });
+    if (existingUser && existingUser.id !== id) {
+      return { error: "Este e-mail já está cadastrado no sistema por outro usuário." };
+    }
+  } catch (err: any) {
+    return { error: "Erro de validação: " + err.message };
   }
 
   try {

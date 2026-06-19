@@ -124,6 +124,25 @@ export async function createLicenseRequestAction(formData: FormData) {
     return { error: "Preencha todos os campos obrigatórios." };
   }
 
+  // Pre-validate unique email across license requests and active users
+  try {
+    const existingRequest = await prisma.licenseRequest.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    });
+    if (existingRequest) {
+      return { error: "Já existe uma solicitação de licença cadastrada com este e-mail." };
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    });
+    if (existingUser) {
+      return { error: "Este e-mail já está em uso por outro usuário no sistema." };
+    }
+  } catch (err: any) {
+    return { error: "Erro de validação: " + err.message };
+  }
+
   try {
     // Determine maxUnits based on plans in SystemConfig
     const config = await getSystemConfig();
@@ -278,6 +297,27 @@ export async function createCompanyWithLicense(formData: FormData) {
 
   if (!name || !plan || !adminEmail || !adminPassword) {
     return { error: "Preencha os campos obrigatórios." };
+  }
+
+  // Pre-validate unique email and document
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: adminEmail.trim().toLowerCase() }
+    });
+    if (existingUser) {
+      return { error: "O e-mail do administrador já está cadastrado no sistema." };
+    }
+
+    if (document && document.trim()) {
+      const existingCompanyByDoc = await prisma.company.findFirst({
+        where: { document: document.trim() }
+      });
+      if (existingCompanyByDoc) {
+        return { error: "Já existe uma empresa cadastrada com este CNPJ/CPF." };
+      }
+    }
+  } catch (err: any) {
+    return { error: "Erro de validação: " + err.message };
   }
 
   try {

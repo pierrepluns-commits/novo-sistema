@@ -82,6 +82,14 @@ export default function PDVPage() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
+  const updateCartQuantity = (id: string, qty: number) => {
+    if (qty <= 0) {
+      removeFromCart(id);
+      return;
+    }
+    setCart(prev => prev.map(item => item.id === id ? { ...item, cartQuantity: qty } : item));
+  };
+
   const total = cart.reduce((acc, item) => acc + (item.isFreebie ? 0 : item.price * item.cartQuantity), 0);
 
   const handleOpenPayment = () => {
@@ -271,9 +279,35 @@ export default function PDVPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">{item.cartQuantity}x</span>
-                      <span className="text-sm font-bold text-foreground">
+                    <div className="flex items-center gap-1 sm:gap-2 select-none">
+                      <button 
+                        type="button"
+                        onClick={() => updateCartQuantity(item.id, item.cartQuantity - 1)}
+                        className="p-1 rounded bg-[#0a0f1c] border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer w-7 h-7 flex items-center justify-center font-bold"
+                        title="Diminuir quantidade"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <input 
+                        type="number"
+                        min="1"
+                        value={item.cartQuantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          updateCartQuantity(item.id, val);
+                        }}
+                        className="w-10 text-center bg-[#0a0f1c] border border-slate-800 rounded-lg text-white text-xs py-1 px-0.5 focus:ring-1 focus:ring-primary focus:outline-none font-bold"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => updateCartQuantity(item.id, item.cartQuantity + 1)}
+                        className="p-1 rounded bg-[#0a0f1c] border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer w-7 h-7 flex items-center justify-center font-bold"
+                        title="Aumentar quantidade"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                      <span className="text-xs text-gray-500 ml-0.5 font-bold">x</span>
+                      <span className="text-sm font-bold text-foreground min-w-[70px] text-right">
                         R$ {item.isFreebie ? "0.00" : (item.price * item.cartQuantity).toFixed(2)}
                       </span>
                     </div>

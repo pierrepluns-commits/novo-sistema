@@ -13,9 +13,9 @@ export function EstoqueClientWrapper({ units }: { units: any[] }) {
       <Button 
         variant="outline" 
         onClick={() => setIsModalOpen(true)}
-        className="border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-2"
+        className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500/60 flex items-center justify-center gap-2 py-2 px-3 text-xs sm:text-sm font-bold shadow-[0_0_10px_rgba(168,85,247,0.05)] transition-all duration-300"
       >
-        <ArrowDownToLine className="w-4 h-4" />
+        <ArrowDownToLine className="w-4 h-4 text-purple-400" />
         Importar CSV
       </Button>
 

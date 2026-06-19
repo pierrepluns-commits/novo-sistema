@@ -213,18 +213,18 @@ export function SuppliersClient({ initialSuppliers }: SuppliersClientProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => openEditModal(supplier)}
-                        className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-1"
+                        className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/60 flex items-center gap-1.5 font-bold shadow-[0_0_8px_rgba(59,130,246,0.05)] transition-all duration-300"
                       >
-                        <Edit className="w-3.5 h-3.5" />
+                        <Edit className="w-3.5 h-3.5 text-blue-400" />
                         Editar
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(supplier.id, supplier.name)}
-                        className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300 flex items-center gap-1"
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/60 flex items-center gap-1.5 font-bold shadow-[0_0_8px_rgba(239,68,68,0.05)] transition-all duration-300"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
                         Excluir
                       </Button>
                     </div>

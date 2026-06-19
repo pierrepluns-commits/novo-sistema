@@ -16,12 +16,17 @@ export async function GET(request: Request) {
     // Se não vier explicitamente na URL, tenta ler a unidade ativa selecionada
     const activeUnitId = queryUnitId || (await getSelectedUnitId());
 
-    // Se a unidade for informada, filtra por ela; caso contrário, busca todos da empresa
+    // Se a unidade for informada, filtra por ela ou unitId: null; caso contrário, busca todos da empresa
+    let whereClause: any = { companyId: session.companyId };
+    if (activeUnitId) {
+      whereClause.OR = [
+        { unitId: activeUnitId },
+        { unitId: null }
+      ];
+    }
+
     const users = await prisma.user.findMany({
-      where: {
-        companyId: session.companyId,
-        unitId: activeUnitId || undefined,
-      },
+      where: whereClause,
       select: {
         id: true,
         name: true,

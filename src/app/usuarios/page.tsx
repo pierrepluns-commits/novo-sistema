@@ -17,11 +17,18 @@ export default async function UsuariosPage() {
   const selectedUnitId = await getSelectedUnitId();
 
   // Filtrar usuários por empresa e unidade ativa
+  // Se houver uma unidade selecionada, exibe os usuários daquela unidade OU vinculados a todas (unitId: null)
   let whereClause: any = { companyId: session.companyId };
   if (selectedUnitId) {
-    whereClause.unitId = selectedUnitId;
+    whereClause.OR = [
+      { unitId: selectedUnitId },
+      { unitId: null }
+    ];
   } else if (session.role !== 'COMPANY_ADMIN') {
-    whereClause.unitId = session.unitId || "NONE";
+    whereClause.OR = [
+      { unitId: session.unitId || "NONE" },
+      { unitId: null }
+    ];
   }
 
   const users = await prisma.user.findMany({

@@ -12,7 +12,7 @@ export async function createUser(formData: FormData) {
   }
 
   const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
+  const email = (formData.get("email") as string || "").trim().toLowerCase();
   const role = formData.get("role") as string;
   const password = formData.get("password") as string;
   const unitId = formData.get("unitId") as string;
@@ -72,7 +72,7 @@ export async function updateUser(formData: FormData) {
   if (!id) return { error: "ID do usuário ausente." };
 
   const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
+  const email = (formData.get("email") as string || "").trim().toLowerCase();
   const role = formData.get("role") as string;
   const unitId = formData.get("unitId") as string;
   const password = formData.get("password") as string;

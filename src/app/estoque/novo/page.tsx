@@ -25,10 +25,20 @@ export default async function NovoProdutoPage() {
     select: { id: true, name: true, sku: true, price: true }
   });
 
+  const suppliers = await prisma.supplier.findMany({
+    where: { companyId: session.companyId },
+    orderBy: { name: "asc" }
+  });
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PageHeader title="Adicionar Novo Produto no Estoque" />
-      <ProductForm units={units} sessionUnitId={session.unitId} allProducts={allProducts} />
+      <ProductForm 
+        units={units} 
+        sessionUnitId={session.unitId} 
+        allProducts={allProducts} 
+        suppliers={suppliers as any[]} 
+      />
     </div>
   );
 }

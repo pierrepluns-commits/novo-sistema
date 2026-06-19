@@ -41,6 +41,7 @@ model Company {
   transactions FinancialTransaction[]
   clients      Client[]
   serviceOrders ServiceOrder[]
+  suppliers    Supplier[]
 }
 
 model Unit {
@@ -104,6 +105,9 @@ model Product {
   stockMoves StockMovement[]
   serviceOrderItems ServiceOrderItem[]
   
+  supplierId  String?
+  supplier    Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
   // For Kits:
   kitItems      ProductBundle[] @relation("KitParent")
   partOfKits    ProductBundle[] @relation("KitComponent")
@@ -331,5 +335,19 @@ model ServiceOrderItem {
 
   serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
   product      Product      @relation(fields: [productId], references: [id])
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  document  String?
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products Product[]
 }
 

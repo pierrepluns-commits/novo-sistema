@@ -40,10 +40,21 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
     select: { id: true, name: true, sku: true, price: true }
   });
 
+  const suppliers = await prisma.supplier.findMany({
+    where: { companyId: session.companyId },
+    orderBy: { name: "asc" }
+  });
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <PageHeader title={`Editar Produto: ${productToEdit.name}`} />
-      <ProductForm units={units} sessionUnitId={session.unitId} initialData={productToEdit} allProducts={allProducts} />
+      <ProductForm 
+        units={units} 
+        sessionUnitId={session.unitId} 
+        initialData={productToEdit} 
+        allProducts={allProducts} 
+        suppliers={suppliers as any[]} 
+      />
     </div>
   );
 }

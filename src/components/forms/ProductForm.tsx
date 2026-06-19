@@ -6,7 +6,7 @@ import { createProduct, updateProduct } from "@/app/actions/product";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
-export function ProductForm({ units, sessionUnitId, initialData, allProducts = [] }: { units: any[], sessionUnitId?: string | null, initialData?: any, allProducts?: any[] }) {
+export function ProductForm({ units, sessionUnitId, initialData, allProducts = [], suppliers = [] }: { units: any[], sessionUnitId?: string | null, initialData?: any, allProducts?: any[], suppliers?: any[] }) {
   const [loading, setLoading] = useState(false);
   const [isKit, setIsKit] = useState(initialData?.isKit || false);
   const [kitItems, setKitItems] = useState<{componentId: string, quantity: number}[]>(
@@ -98,6 +98,25 @@ export function ProductForm({ units, sessionUnitId, initialData, allProducts = [
             className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-[#0a0f1c] text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
             placeholder="Ex: 7891234567890"
           />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-medium text-slate-300">Fornecedor</label>
+            <a href="/estoque/fornecedores" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+              + Cadastrar fornecedor
+            </a>
+          </div>
+          <select 
+            name="supplierId" 
+            defaultValue={initialData?.supplierId || ""}
+            className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-[#0a0f1c] text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="">Nenhum fornecedor selecionado</option>
+            {suppliers.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         </div>
 
         {!sessionUnitId && !initialData && (

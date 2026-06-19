@@ -19,6 +19,7 @@ export async function createProduct(formData: FormData) {
   const price = parseFloat(formData.get("price") as string) || 0;
   const cost = parseFloat(formData.get("cost") as string) || 0;
   const isKit = formData.get("isKit") === "true";
+  const supplierId = formData.get("supplierId") as string;
   
   // Se o usuário tem uma unitId na sessão, usa ela. Senão, tenta pegar do form (caso seja Admin)
   const targetUnitId = session.unitId || (formData.get("unitId") as string);
@@ -37,6 +38,7 @@ export async function createProduct(formData: FormData) {
       price,
       cost,
       isKit,
+      supplierId: supplierId || null,
       // Se for kit, vincula os ingredientes/componentes
       kitItems: isKit && formData.get("kitItems") ? {
         create: JSON.parse(formData.get("kitItems") as string).map((item: any) => ({
@@ -76,6 +78,7 @@ export async function updateProduct(formData: FormData) {
   const price = parseFloat(formData.get("price") as string) || 0;
   const cost = parseFloat(formData.get("cost") as string) || 0;
   const isKit = formData.get("isKit") === "true";
+  const supplierId = formData.get("supplierId") as string;
 
   if (!name || !sku) {
     return { error: "Nome e SKU são obrigatórios." };
@@ -96,7 +99,8 @@ export async function updateProduct(formData: FormData) {
         description,
         price,
         cost,
-        isKit
+        isKit,
+        supplierId: supplierId || null
       },
     });
 

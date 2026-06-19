@@ -3,7 +3,10 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Search, Eye, EyeOff, Edit, HelpCircle } from "lucide-react";
+import { Search, Eye, EyeOff, Edit, HelpCircle, Trash2 } from "lucide-react";
+import { deleteProduct } from "@/app/actions/product";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 interface ProductWithStock {
   id: string;
@@ -22,9 +25,25 @@ interface StockTableClientProps {
 }
 
 export function StockTableClient({ products, canManage }: StockTableClientProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [revealAll, setRevealAll] = useState(false);
   const [revealedIndividual, setRevealedIndividual] = useState<Record<string, boolean>>({});
+
+  const handleDelete = async (productId: string, productName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o produto "${productName}" permanentemente?`)) {
+      return;
+    }
+
+    try {
+      await deleteProduct(productId);
+      toast.success("Produto excluído com sucesso!");
+      router.refresh();
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Não foi possível excluir este produto pois ele possui histórico de vendas ou ordens de serviço vinculado.");
+    }
+  };
 
   // Filtrar produtos com base na busca
   const filteredProducts = products.filter((product) => {
@@ -177,16 +196,27 @@ export function StockTableClient({ products, canManage }: StockTableClientProps)
                   {/* Ações */}
                   {canManage && (
                     <td className="p-4 text-right">
-                      <Link href={`/estoque/editar/${product.id}`}>
+                      <div className="flex gap-2 justify-end">
+                        <Link href={`/estoque/editar/${product.id}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-1.5"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            Editar
+                          </Button>
+                        </Link>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-1.5 ml-auto"
+                          onClick={() => handleDelete(product.id, product.name)}
+                          className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300 flex items-center gap-1.5"
                         >
-                          <Edit className="w-3 h-3" />
-                          Editar
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Excluir
                         </Button>
-                      </Link>
+                      </div>
                     </td>
                   )}
                 </tr>

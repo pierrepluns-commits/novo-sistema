@@ -10,7 +10,8 @@ import {
   History, 
   TrendingUp, 
   Coins, 
-  BarChart3 
+  BarChart3,
+  Truck
 } from "lucide-react";
 import { EstoqueClientWrapper } from "@/components/EstoqueClientWrapper";
 import { getSelectedUnitId } from "@/app/actions/unit";
@@ -82,6 +83,14 @@ export default async function Estoque() {
           <p className="text-sm text-slate-400 mt-1">Gerencie produtos e quantidades</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          {canManage && (
+            <Link href="/estoque/fornecedores" className="flex-1 sm:flex-initial">
+              <Button variant="outline" className="w-full border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center justify-center gap-2 py-2 px-3 text-xs sm:text-sm">
+                <Truck className="w-4 h-4 text-cyan-400" />
+                Fornecedores
+              </Button>
+            </Link>
+          )}
           <Link href="/estoque/historico" className="flex-1 sm:flex-initial">
             <Button variant="outline" className="w-full border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center justify-center gap-2 py-2 px-3 text-xs sm:text-sm">
               <History className="w-4 h-4" />

@@ -25,6 +25,12 @@ export async function importProducts(data: any[], unitId: string) {
     
     // Processamento em lote
     await prisma.$transaction(async (tx) => {
+      // Buscar todos os produtos existentes para evitar consultas repetitivas (N+1)
+      const existingProducts = await tx.product.findMany({
+        where: { companyId: session.companyId! }
+      });
+      const productMap = new Map(existingProducts.map(p => [p.sku.toLowerCase(), p]));
+
       for (const row of data) {
         if (!row.Nome || !row.SKU || row.Custo === undefined || row.Preco === undefined) {
           continue; // Pula linha inválida
@@ -33,18 +39,17 @@ export async function importProducts(data: any[], unitId: string) {
         const cost = parseFloat(String(row.Custo).replace(",", "."));
         const price = parseFloat(String(row.Preco).replace(",", "."));
         const initialQuantity = parseInt(String(row.Quantidade || 0), 10);
+        const skuStr = String(row.SKU).trim();
 
-        // Verifica se produto já existe pelo SKU na empresa
-        let product = await tx.product.findFirst({
-          where: { companyId: session.companyId!, sku: String(row.SKU) }
-        });
+        // Verifica se produto já existe pelo SKU na empresa (case-insensitive)
+        let product = productMap.get(skuStr.toLowerCase());
 
         if (!product) {
           product = await tx.product.create({
             data: {
               companyId: session.companyId!,
               name: String(row.Nome),
-              sku: String(row.SKU),
+              sku: skuStr,
               barcode: row.CodigoBarras ? String(row.CodigoBarras) : null,
               description: row.Descricao ? String(row.Descricao) : null,
               cost: isNaN(cost) ? 0 : cost,
@@ -52,6 +57,8 @@ export async function importProducts(data: any[], unitId: string) {
               isKit: false
             }
           });
+          // Adiciona ao map em memória para evitar criar duplicado se vier na mesma planilha
+          productMap.set(skuStr.toLowerCase(), product);
         }
 
         // Adiciona/Atualiza o estoque na unidade selecionada
@@ -88,6 +95,9 @@ export async function importProducts(data: any[], unitId: string) {
 
         successCount++;
       }
+    }, {
+      maxWait: 15000,
+      timeout: 60000
     });
 
     revalidatePath("/estoque");

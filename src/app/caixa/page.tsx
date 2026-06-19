@@ -7,6 +7,7 @@ import { CashRegisterClient } from "@/components/forms/CashRegisterClient";
 import { Banknote, CreditCard, Clock, Calculator } from "lucide-react";
 import { ManualTransactionForm, EditSaleModal, ServiceOrdersShiftList } from "@/components/forms/CaixaClientForms";
 import { getSelectedUnitId } from "@/app/actions/unit";
+import { SelectUnitBox } from "@/components/forms/SelectUnitBox";
 
 export default async function CaixaPage() {
   const session = await getSession();
@@ -17,16 +18,17 @@ export default async function CaixaPage() {
   const activeUnitId = await getSelectedUnitId();
 
   if (!activeUnitId) {
+    // Buscar as unidades da empresa
+    const units = await prisma.unit.findMany({
+      where: { companyId: session.companyId! },
+      orderBy: { name: "asc" }
+    });
+
     return (
       <div className="space-y-6">
         <PageHeader title="Controle de Caixa" showBack={false} />
         <div className="max-w-md mx-auto mt-10">
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl shadow-xl p-6 text-center">
-            <h2 className="text-xl font-bold text-cyan-400 mb-2">Selecione uma Unidade</h2>
-            <p className="text-slate-400 mb-6 text-sm">
-              Selecione uma unidade no cabeçalho geral para poder abrir, visualizar e gerenciar o caixa correspondente.
-            </p>
-          </div>
+          <SelectUnitBox units={units} />
         </div>
       </div>
     );

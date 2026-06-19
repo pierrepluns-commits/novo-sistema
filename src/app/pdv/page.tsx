@@ -57,6 +57,11 @@ export default function PDVPage() {
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
+      const currentQty = existing ? existing.cartQuantity : 0;
+      if (currentQty + 1 > product.quantity) {
+        alert(`Estoque insuficiente! O estoque atual deste produto é de apenas ${product.quantity} unidades.`);
+        return prev;
+      }
       if (existing) {
         return prev.map(item => item.id === product.id ? { ...item, cartQuantity: item.cartQuantity + 1 } : item);
       }
@@ -85,6 +90,11 @@ export default function PDVPage() {
   const updateCartQuantity = (id: string, qty: number) => {
     if (qty <= 0) {
       removeFromCart(id);
+      return;
+    }
+    const item = cart.find(i => i.id === id);
+    if (item && qty > item.quantity) {
+      alert(`Estoque insuficiente! O estoque atual deste produto é de apenas ${item.quantity} unidades.`);
       return;
     }
     setCart(prev => prev.map(item => item.id === id ? { ...item, cartQuantity: qty } : item));

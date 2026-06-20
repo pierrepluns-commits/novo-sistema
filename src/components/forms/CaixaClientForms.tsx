@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { addManualCashTransaction } from "@/app/actions/caixa";
+import { addManualCashTransaction, updateOpeningBalance } from "@/app/actions/caixa";
 import { updateSaleFee, updateSaleDetails } from "@/app/actions/pdv";
 import toast from "react-hot-toast";
 import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator } from "lucide-react";
@@ -576,6 +576,83 @@ export function ServiceOrdersShiftList({ serviceOrders }: ServiceOrdersShiftList
           })
         )}
       </div>
+    </div>
+  );
+}
+
+interface EditOpeningBalanceProps {
+  registerId: string;
+  initialBalance: number;
+}
+
+export function EditOpeningBalance({ registerId, initialBalance }: EditOpeningBalanceProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [balance, setBalance] = useState<string>(initialBalance.toFixed(2));
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    const numericBalance = parseFloat(balance.replace(",", ".")) || 0;
+    if (numericBalance < 0) {
+      toast.error("O saldo de abertura não pode ser negativo.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateOpeningBalance(registerId, numericBalance);
+      toast.success("Saldo de abertura atualizado!");
+      setIsEditing(false);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao atualizar saldo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-200">
+        <div className="relative w-28">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">R$</span>
+          <input 
+            type="number" 
+            step="0.01" 
+            value={balance}
+            onChange={(e) => setBalance(e.target.value)}
+            disabled={loading}
+            className="w-full pl-8 pr-2 py-1.5 text-xs bg-[#0a0f1c] border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 font-bold"
+          />
+        </div>
+        <button 
+          onClick={handleSave} 
+          disabled={loading}
+          className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/20 transition-all cursor-pointer"
+          title="Confirmar"
+        >
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button 
+          onClick={() => { setBalance(initialBalance.toFixed(2)); setIsEditing(false); }} 
+          disabled={loading}
+          className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/20 transition-all cursor-pointer"
+          title="Cancelar"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-bold text-slate-350">R$ {initialBalance.toFixed(2)}</span>
+      <button 
+        onClick={() => setIsEditing(true)} 
+        className="p-1 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 rounded transition-all cursor-pointer"
+        title="Editar Saldo Inicial"
+      >
+        <Edit2 className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }

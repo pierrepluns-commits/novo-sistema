@@ -139,3 +139,34 @@ export async function addManualCashTransaction(type: 'INCOME' | 'EXPENSE', amoun
   
   return tx;
 }
+
+export async function updateOpeningBalance(registerId: string, newBalance: number) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    throw new Error("Não autorizado");
+  }
+
+  // Permitir apenas administradores (SUPER_ADMIN ou COMPANY_ADMIN)
+  if (session.role !== "SUPER_ADMIN" && session.role !== "COMPANY_ADMIN") {
+    throw new Error("Permissão negada. Apenas administradores podem alterar o saldo de abertura.");
+  }
+
+  const register = await prisma.cashRegister.findUnique({
+    where: { id: registerId },
+    include: { unit: true }
+  });
+
+  if (!register || register.unit.companyId !== session.companyId) {
+    throw new Error("Caixa não encontrado ou não autorizado.");
+  }
+
+  // Atualizar saldo de abertura
+  const updated = await prisma.cashRegister.update({
+    where: { id: registerId },
+    data: { openingBalance: newBalance }
+  });
+
+  revalidatePath("/pdv");
+  revalidatePath("/caixa");
+  return updated;
+}

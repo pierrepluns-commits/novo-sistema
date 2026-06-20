@@ -5,7 +5,7 @@ import { getCurrentCashRegister } from "@/app/actions/caixa";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CashRegisterClient } from "@/components/forms/CashRegisterClient";
 import { Banknote, CreditCard, Clock, Calculator } from "lucide-react";
-import { ManualTransactionForm, EditSaleModal, ServiceOrdersShiftList } from "@/components/forms/CaixaClientForms";
+import { ManualTransactionForm, EditSaleModal, ServiceOrdersShiftList, EditOpeningBalance } from "@/components/forms/CaixaClientForms";
 import { getSelectedUnitId } from "@/app/actions/unit";
 import { SelectUnitBox } from "@/components/forms/SelectUnitBox";
 
@@ -34,6 +34,7 @@ export default async function CaixaPage() {
     );
   }
 
+  const isAdmin = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN";
   const register = await getCurrentCashRegister();
 
   // Buscar todas as vendas concluídas no turno atual se houver caixa aberto
@@ -165,7 +166,11 @@ export default async function CaixaPage() {
               <div className="bg-[#0a0f1c] border border-slate-800 rounded-xl p-4">
                 <div className="flex justify-between items-center text-sm text-slate-400 mb-2">
                   <span>Troco Inicial (Abertura)</span>
-                  <span>R$ {register.openingBalance.toFixed(2)}</span>
+                  {isAdmin ? (
+                    <EditOpeningBalance registerId={register.id} initialBalance={register.openingBalance} />
+                  ) : (
+                    <span>R$ {register.openingBalance.toFixed(2)}</span>
+                  )}
                 </div>
                 <div className="flex justify-between items-center text-sm text-slate-400 mb-4 pb-4 border-b border-slate-800">
                   <span>(+) Entradas em Dinheiro (-) Saídas</span>

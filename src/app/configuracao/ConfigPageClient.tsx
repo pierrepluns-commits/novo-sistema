@@ -8,6 +8,34 @@ import {
 import toast from "react-hot-toast";
 import { saveReceiptConfig, createStoreUnit, updateStoreUnit } from "@/app/actions/config";
 
+const DEFAULT_WARRANTY_TERMS = `TERMO DE GARANTIA E POLÍTICA DE TROCA (CONFORME LEI 8.078/90 - CDC)
+
+1. DA GARANTIA LEGAL (Art. 26, CDC): A loja concede garantia de 30 (trinta) dias para produtos eletrônicos e periféricos contra defeitos de fabricação, contados a partir da data da compra.
+
+2. DO DIREITO DE ARREPENDIMENTO E TESTE FUNCIONAL (Art. 49, CDC):
+O Direito de Arrependimento (7 dias) é aplicável EXCLUSIVAMENTE a compras realizadas fora do estabelecimento (Internet/Telefone).
+COMPRAS PRESENCIAIS: O cliente declara que, no ato da compra, teve acesso ao produto e, em casos aplicáveis, o mesmo foi TESTADO E APRESENTOU FUNCIONALIDADE NORMAL. Comprovado o pleno funcionamento no estabelecimento, NÃO EXISTE DIREITO A ARREPENDIMENTO, desistência ou troca por erro de escolha.
+
+3. DA ALEGAÇÃO DE DEFEITO E TESTE DE BANCADA:
+Em casos de reclamação de vício, o produto será submetido a teste técnico imediato no balcão.
+PRODUTO EM PLENO FUNCIONAMENTO: Se, após o teste na loja, o produto apresentar funcionamento normal, a troca será sumariamente NEGADA. Nestes casos, entende-se que a falha relatada decorre de incompatibilidade, configuração incorreta ou falta de perícia do usuário, não sendo de responsabilidade da loja.
+DANOS ADVERSOS À FABRICAÇÃO: Caso o produto apresente defeito visível ou funcional decorrente de fatores externos ocorridos após a saída da loja (picos de energia, quedas, umidade, pressão ou uso de fontes incompatíveis), a CONTRATADA se resguarda o direito de NÃO REALIZAR A TROCA, NÃO DEVOLVER VALORES E NÃO GERAR VALE-CRÉDITO, visto que a garantia cobre apenas vícios de fabricação.
+
+4. DO BENEFÍCIO DE TROCA (48H ÚTEIS):
+A substituição imediata só ocorre em até 48 horas úteis caso o defeito de fabricação seja real e comprovado pelo técnico da loja. Após este prazo, segue o rito do Art. 18 do CDC (prazo de até 30 dias para solução).
+
+5. ITENS SEM GARANTIA (CONSUMO IMEDIATO):
+I. PELÍCULAS: A garantia cessa após a aplicação. Não cobrimos danos pós-venda.
+II. SERVIÇOS DE IMPRESSÃO/XEROX: Conferência obrigatória na entrega.
+III. CAPAS: Sem garantia contra amarelamento ou danos de uso.
+
+6. POLÍTICA DE REEMBOLSO E VALE-CRÉDITO:
+A empresa NÃO REALIZA DEVOLUÇÃO DE VALORES EM ESPÉCIE/DINHEIRO.
+Na impossibilidade de reparo ou troca por item idêntico, o ressarcimento será feito via VALE-CRÉDITO (Voucher) com validade de 30 dias.
+
+7. EXCLUSÃO DE GARANTIA:
+Anulação automática em caso de fios cortados, conectores oxidados/quebrados, selos violados ou qualquer sinal de impacto físico.`;
+
 interface ConfigPageClientProps {
   company: any;
   units: any[];
@@ -20,7 +48,7 @@ export function ConfigPageClient({ company, units: initialUnits, license }: Conf
 
   // Printing Configurations States
   const [header, setHeader] = useState(company.receiptHeader || "Obrigado pela preferência!");
-  const [footer, setFooter] = useState(company.receiptFooter || "Volte sempre! Lumus ERP");
+  const [footer, setFooter] = useState(company.receiptFooter || DEFAULT_WARRANTY_TERMS);
   
   const parsedConfig = (() => {
     try {
@@ -243,11 +271,11 @@ export function ConfigPageClient({ company, units: initialUnits, license }: Conf
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1.5">Texto do Rodapé (Termos / Agradecimento)</label>
                   <textarea
-                    rows={2}
+                    rows={12}
                     value={footer}
                     onChange={(e) => setFooter(e.target.value)}
                     placeholder="Texto exibido na base da nota"
-                    className="w-full p-3 text-sm bg-[#0a0f1c] border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-cyan-500"
+                    className="w-full p-3 text-sm bg-[#0a0f1c] border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-cyan-500 font-mono text-xs"
                   />
                 </div>
 

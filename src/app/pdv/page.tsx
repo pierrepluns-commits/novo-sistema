@@ -5,6 +5,35 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Search, ShoppingCart, Plus, Minus, Trash, Printer, Gift, Clock, CreditCard, Banknote, History, X, PackagePlus, Lock } from "lucide-react";
 import { createSale, cancelSale, getRecentSales, updateSaleFee } from "../actions/pdv";
+import { getReceiptConfig } from "../actions/config";
+
+const DEFAULT_WARRANTY_TERMS = `TERMO DE GARANTIA E POLÍTICA DE TROCA (CONFORME LEI 8.078/90 - CDC)
+
+1. DA GARANTIA LEGAL (Art. 26, CDC): A loja concede garantia de 30 (trinta) dias para produtos eletrônicos e periféricos contra defeitos de fabricação, contados a partir da data da compra.
+
+2. DO DIREITO DE ARREPENDIMENTO E TESTE FUNCIONAL (Art. 49, CDC):
+O Direito de Arrependimento (7 dias) é aplicável EXCLUSIVAMENTE a compras realizadas fora do estabelecimento (Internet/Telefone).
+COMPRAS PRESENCIAIS: O cliente declara que, no ato da compra, teve acesso ao produto e, em casos aplicáveis, o mesmo foi TESTADO E APRESENTOU FUNCIONALIDADE NORMAL. Comprovado o pleno funcionamento no estabelecimento, NÃO EXISTE DIREITO A ARREPENDIMENTO, desistência ou troca por erro de escolha.
+
+3. DA ALEGAÇÃO DE DEFEITO E TESTE DE BANCADA:
+Em casos de reclamação de vício, o produto será submetido a teste técnico imediato no balcão.
+PRODUTO EM PLENO FUNCIONAMENTO: Se, após o teste na loja, o produto apresentar funcionamento normal, a troca será sumariamente NEGADA. Nestes casos, entende-se que a falha relatada decorre de incompatibilidade, configuração incorreta ou falta de perícia do usuário, não sendo de responsabilidade da loja.
+DANOS ADVERSOS À FABRICAÇÃO: Caso o produto apresente defeito visível ou funcional decorrente de fatores externos ocorridos após a saída da loja (picos de energia, quedas, umidade, pressão ou uso de fontes incompatíveis), a CONTRATADA se resguarda o direito de NÃO REALIZAR A TROCA, NÃO DEVOLVER VALORES E NÃO GERAR VALE-CRÉDITO, visto que a garantia cobre apenas vícios de fabricação.
+
+4. DO BENEFÍCIO DE TROCA (48H ÚTEIS):
+A substituição imediata só ocorre em até 48 horas úteis caso o defeito de fabricação seja real e comprovado pelo técnico da loja. Após este prazo, segue o rito do Art. 18 do CDC (prazo de até 30 dias para solução).
+
+5. ITENS SEM GARANTIA (CONSUMO IMEDIATO):
+I. PELÍCULAS: A garantia cessa após a aplicação. Não cobrimos danos pós-venda.
+II. SERVIÇOS DE IMPRESSÃO/XEROX: Conferência obrigatória na entrega.
+III. CAPAS: Sem garantia contra amarelamento ou danos de uso.
+
+6. POLÍTICA DE REEMBOLSO E VALE-CRÉDITO:
+A empresa NÃO REALIZA DEVOLUÇÃO DE VALORES EM ESPÉCIE/DINHEIRO.
+Na impossibilidade de reparo ou troca por item idêntico, o ressarcimento será feito via VALE-CRÉDITO (Voucher) com validade de 30 dias.
+
+7. EXCLUSÃO DE GARANTIA:
+Anulação automática em caso de fios cortados, conectores oxidados/quebrados, selos violados ou qualquer sinal de impacto físico.`;
 
 type Product = { id: string, name: string, price: number, cost: number, sku: string, barcode?: string, quantity: number };
 type CartItem = Product & { cartQuantity: number, isFreebie: boolean };
@@ -26,6 +55,7 @@ export default function PDVPage() {
   const [users, setUsers] = useState<{ id: string, name: string, role: string }[]>([]);
   const [selectedSellerId, setSelectedSellerId] = useState<string>("");
   const [cardFeeInput, setCardFeeInput] = useState<string>("0");
+  const [receiptConfig, setReceiptConfig] = useState<any>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,7 +76,26 @@ export default function PDVPage() {
         }
       })
       .catch(err => console.error("Failed to load users", err));
+
+    getReceiptConfig()
+      .then(data => setReceiptConfig(data))
+      .catch(err => console.error("Failed to load receipt config", err));
   }, []);
+
+  const parsedReceiptConfig = (() => {
+    try {
+      return JSON.parse(receiptConfig?.receiptConfig || "{}");
+    } catch (e) {
+      return {};
+    }
+  })();
+
+  const paperWidth = parsedReceiptConfig.paperWidth || "80mm";
+  const margins = parsedReceiptConfig.margins || "8px";
+  const showCashier = parsedReceiptConfig.showCashier ?? true;
+  const showDocument = parsedReceiptConfig.showDocument ?? true;
+  const showAddress = parsedReceiptConfig.showAddress ?? true;
+  const showContact = parsedReceiptConfig.showContact ?? true;
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -537,14 +586,79 @@ export default function PDVPage() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-card w-full max-w-sm rounded-xl shadow-2xl flex flex-col print:shadow-none print:w-[80mm] print:bg-white print:text-black">
             
+            {/* Dynamic CSS for Print Bobbin styling */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #receipt, #receipt * {
+                  visibility: visible !important;
+                }
+                #receipt {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: ${paperWidth} !important;
+                  padding: ${margins} !important;
+                  margin: 0 !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  background: white !important;
+                  color: black !important;
+                }
+                @page {
+                  margin: 0;
+                }
+              }
+            ` }} />
+
             {/* The printable area */}
-            <div className="p-6 bg-white text-black font-mono shadow-inner" id="receipt">
-              <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4">
-                <h2 className="font-extrabold text-2xl uppercase tracking-widest">CYBER ERP</h2>
-                <p className="text-xs text-gray-600 mt-1">CNPJ: 00.000.000/0001-00</p>
-                <p className="text-xs text-gray-600">Rua Exemplo, 123 - Centro</p>
-                <p className="text-xs font-mono mt-2">RECIBO #{lastSale.id.split("-")[0]}</p>
-                <p className="text-xs text-gray-500">{new Date(lastSale.createdAt).toLocaleString()}</p>
+            <div 
+              style={{ 
+                width: paperWidth === "58mm" ? "240px" : "330px", 
+                padding: margins 
+              }}
+              className="bg-white text-black font-mono shadow-inner text-xs" 
+              id="receipt"
+            >
+              <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
+                <h2 className="font-extrabold text-base uppercase tracking-tight">
+                  {(receiptConfig?.unitName || receiptConfig?.companyName || "CYBER ERP").toUpperCase()}
+                </h2>
+                
+                {showDocument && (receiptConfig?.unitDocument || receiptConfig?.companyDocument) && (
+                  <p className="text-[10px] text-gray-700 mt-0.5 font-bold">
+                    CNPJ/CPF: {receiptConfig?.unitDocument || receiptConfig?.companyDocument}
+                  </p>
+                )}
+                
+                {showAddress && receiptConfig?.unitAddress && (
+                  <p className="text-[9px] text-gray-600 mt-0.5 leading-tight">
+                    {receiptConfig.unitAddress}
+                  </p>
+                )}
+                
+                {showContact && receiptConfig?.unitContact && (
+                  <p className="text-[9px] text-gray-600 mt-0.5 font-bold">
+                    {receiptConfig.unitContact}
+                  </p>
+                )}
+
+                {receiptConfig?.receiptHeader && (
+                  <p className="text-[10px] italic border-t border-b border-dashed border-gray-300 py-1 my-1.5 text-gray-800 break-words whitespace-pre-line">
+                    {receiptConfig.receiptHeader}
+                  </p>
+                )}
+
+                <p className="text-[10px] font-bold mt-2">RECIBO #{lastSale.id.split("-")[0].toUpperCase()}</p>
+                <p className="text-[9px] text-gray-500">{new Date(lastSale.createdAt).toLocaleString("pt-BR")}</p>
+                
+                {showCashier && (
+                  <p className="text-[9px] text-gray-600 font-semibold mt-0.5">
+                    VENDEDOR: {(users.find(u => u.id === lastSale.userId)?.name || users.find(u => u.id === selectedSellerId)?.name || "Caixa").toUpperCase()}
+                  </p>
+                )}
               </div>
 
               <div className="mb-4">
@@ -576,11 +690,13 @@ export default function PDVPage() {
                 <p className="text-xs mt-2 text-gray-600 uppercase">PAGAMENTO: {lastSale.paymentMethod}</p>
               </div>
 
-              <div className="text-center mt-6 pt-4 border-t border-dashed border-gray-400">
-                <p className="text-xs font-bold">OBRIGADO PELA PREFERÊNCIA!</p>
+              <div className="text-center mt-4 pt-3 border-t border-dashed border-gray-400">
+                <div className="text-[9px] text-gray-700 whitespace-pre-line leading-relaxed text-left">
+                  {receiptConfig?.receiptFooter || DEFAULT_WARRANTY_TERMS}
+                </div>
                 <div className="mt-4 flex justify-center opacity-50">
                    {/* Fake Barcode */}
-                   <div className="h-10 w-48 bg-[repeating-linear-gradient(90deg,#000,#000_2px,transparent_2px,transparent_4px)]"></div>
+                   <div className="h-8 w-40 bg-[repeating-linear-gradient(90deg,#000,#000_2px,transparent_2px,transparent_4px)]"></div>
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { getSelectedUnitId } from "@/app/actions/unit";
 
 // 1. Save company receipt template config
 export async function saveReceiptConfig(header: string, footer: string, configJson: string) {
@@ -136,4 +137,48 @@ export async function updateStoreUnit(
   } catch (error: any) {
     return { error: "Erro ao atualizar unidade: " + error.message };
   }
+}
+
+export async function getReceiptConfig() {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    throw new Error("Não autorizado");
+  }
+
+  // Obter id da unidade selecionada
+  const activeUnitId = await getSelectedUnitId();
+
+  const [company, unit] = await Promise.all([
+    prisma.company.findUnique({
+      where: { id: session.companyId },
+      select: {
+        name: true,
+        document: true,
+        receiptHeader: true,
+        receiptFooter: true,
+        receiptConfig: true
+      }
+    }),
+    activeUnitId ? prisma.unit.findUnique({
+      where: { id: activeUnitId },
+      select: {
+        name: true,
+        document: true,
+        address: true,
+        contact: true
+      }
+    }) : null
+  ]);
+
+  return {
+    companyName: company?.name || "CyberERP",
+    companyDocument: company?.document || "",
+    receiptHeader: company?.receiptHeader || "",
+    receiptFooter: company?.receiptFooter || "",
+    receiptConfig: company?.receiptConfig || "{}",
+    unitName: unit?.name || "",
+    unitDocument: unit?.document || "",
+    unitAddress: unit?.address || "",
+    unitContact: unit?.contact || ""
+  };
 }

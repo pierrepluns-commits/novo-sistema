@@ -7,9 +7,10 @@ import OSEditorClient from "./OSEditorClient";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
-export default async function EditOSPage({ params }: PageProps) {
+export default async function EditOSPage({ params, searchParams }: PageProps) {
   const session = await getSession();
   if (!session || !session.companyId) {
     return redirect("/login");
@@ -78,12 +79,15 @@ export default async function EditOSPage({ params }: PageProps) {
     orderBy: { name: "asc" },
   });
 
+  const { tab = "general" } = await searchParams;
+
   return (
     <OSEditorClient 
       os={os as any} 
       clients={clients as any} 
       availableParts={availableParts} 
       users={users as any}
+      defaultTab={tab}
     />
   );
 }

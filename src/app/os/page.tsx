@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { 
   Plus, Search, Edit, Printer, Wrench, ClipboardList, 
-  ArrowRight, DollarSign, Calendar, Clock, Contact, AlertCircle, Phone
+  ArrowRight, DollarSign, Calendar, Clock, Contact, AlertCircle, Phone, CheckSquare
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -134,14 +134,24 @@ export default async function OSPage({ searchParams }: PageProps) {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <PageHeader title="Gerenciamento de Ordens de Serviço" showBack={false} />
         
-        <Link href="/os/novo">
-          <Button 
-            className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold px-6 py-2.5 shadow-lg shadow-indigo-500/20 rounded-xl"
-            icon={Plus}
-          >
-            Abrir Nova O.S. (Triagem)
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/os?tab=ready">
+            <Button 
+              className="bg-emerald-650 hover:bg-emerald-600 text-white font-bold px-6 py-2.5 shadow-lg shadow-emerald-500/15 rounded-xl border-none"
+              icon={CheckSquare}
+            >
+              Encerrar O.S. (Prontas)
+            </Button>
+          </Link>
+          <Link href="/os/novo">
+            <Button 
+              className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold px-6 py-2.5 shadow-lg shadow-indigo-500/20 rounded-xl"
+              icon={Plus}
+            >
+              Abrir Nova O.S. (Triagem)
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Tabs Layout */}
@@ -241,7 +251,7 @@ export default async function OSPage({ searchParams }: PageProps) {
 
                   return (
                     <tr key={os.id} className="hover:bg-slate-800/30 transition-colors group">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 align-middle">
                         <Link href={`/os/editar/${os.id}`}>
                           <span className="font-mono font-bold text-white bg-[#111827] border border-slate-800 px-2.5 py-1.5 rounded-lg group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all shadow-inner">
                             #{String(os.osNumber).padStart(4, "0")}
@@ -249,7 +259,7 @@ export default async function OSPage({ searchParams }: PageProps) {
                         </Link>
                       </td>
                       
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 align-middle">
                         <div className="font-bold text-white leading-snug">{os.client.name}</div>
                         <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5">
                           <Contact className="w-3 h-3 shrink-0" />
@@ -257,7 +267,7 @@ export default async function OSPage({ searchParams }: PageProps) {
                         </div>
                       </td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 align-middle">
                         <div className="font-bold text-white flex items-center gap-1.5">
                           <Wrench className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                           <span>{os.equipmentBrand} {os.equipmentModel}</span>
@@ -267,19 +277,19 @@ export default async function OSPage({ searchParams }: PageProps) {
                         </div>
                       </td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 align-middle">
                         <span className={`inline-flex px-2 py-0.5 text-[10px] font-bold border rounded-md ${badge.bg} ${badge.text} ${badge.border}`}>
                           {badge.label}
                         </span>
                       </td>
 
-                      <td className="px-6 py-4 text-white font-extrabold text-sm">
+                      <td className="px-6 py-4 align-middle text-white font-extrabold text-sm">
                         R$ {os.totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 align-middle">
                         {os.prepayment > 0 ? (
-                          <div className="space-y-0.5">
+                          <div className="space-y-0.5 text-xs">
                             <div className="text-[10px] text-emerald-400 font-bold">
                               Sinal: R$ {os.prepayment.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                             </div>
@@ -292,7 +302,7 @@ export default async function OSPage({ searchParams }: PageProps) {
                         )}
                       </td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 align-middle">
                         {os.warrantyPeriod > 0 ? (
                           <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold rounded border ${
                             os.warrantyStatus === "ACTIVE" 
@@ -306,23 +316,35 @@ export default async function OSPage({ searchParams }: PageProps) {
                         )}
                       </td>
 
-                      <td className="px-6 py-4 text-right space-x-2">
-                        <Link href={`/os/imprimir/${os.id}`}>
-                          <button 
-                            title="Imprimir Via"
-                            className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-700/80 transition-all active:scale-95 cursor-pointer"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
-                        </Link>
-                        <Link href={`/os/editar/${os.id}`}>
-                          <button 
-                            title="Ver / Editar Detalhes"
-                            className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all active:scale-95 cursor-pointer"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        </Link>
+                      <td className="px-6 py-4 align-middle whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link href={`/os/imprimir/${os.id}`}>
+                            <button 
+                              title="Imprimir Via"
+                              className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-700/80 transition-all active:scale-95 cursor-pointer"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                          </Link>
+                          <Link href={`/os/editar/${os.id}`}>
+                            <button 
+                              title="Ver / Editar Detalhes"
+                              className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all active:scale-95 cursor-pointer"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          </Link>
+                          {os.status !== "DELIVERED" && (
+                            <Link href={`/os/editar/${os.id}?tab=billing`}>
+                              <button 
+                                title="Encerrar / Faturar O.S."
+                                className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all active:scale-95 cursor-pointer"
+                              >
+                                <CheckSquare className="w-4 h-4" />
+                              </button>
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -421,19 +443,27 @@ export default async function OSPage({ searchParams }: PageProps) {
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Link href={`/os/imprimir/${os.id}`}>
-                        <button className="flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition-all active:scale-95 cursor-pointer">
+                        <button className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition-all active:scale-95 cursor-pointer">
                           <Printer className="w-3.5 h-3.5" />
                           <span>Imprimir</span>
                         </button>
                       </Link>
                       <Link href={`/os/editar/${os.id}`}>
-                        <button className="flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer">
+                        <button className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer">
                           <Edit className="w-3.5 h-3.5" />
                           <span>Editar</span>
                         </button>
                       </Link>
+                      {os.status !== "DELIVERED" && (
+                        <Link href={`/os/editar/${os.id}?tab=billing`}>
+                          <button className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer">
+                            <CheckSquare className="w-3.5 h-3.5" />
+                            <span>Encerrar</span>
+                          </button>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>

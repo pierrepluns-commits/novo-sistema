@@ -481,13 +481,15 @@ export async function finishAndBillServiceOrderAction(
     if (!os) return { error: "O.S. não encontrada." };
     if (os.status === "DELIVERED") return { error: "Esta O.S. já foi entregue e faturada." };
 
-    // Get cardServicePrice from checklist
+    // Get cardServicePrice & accessoryCost from checklist
     let checklistObj: Record<string, any> = {};
     try {
       checklistObj = JSON.parse(os.checklist || "{}");
     } catch {
       checklistObj = {};
     }
+
+    const accessoryCost = parseFloat(checklistObj.accessoryCost) || 0;
 
     const currentServicePrice = servicePrice !== undefined && servicePrice > 0 ? servicePrice : os.servicePrice;
     
@@ -569,13 +571,21 @@ export async function finishAndBillServiceOrderAction(
           paymentMethod === "PIX" ? "PIX" : 
           paymentMethod === "CREDIT_CARD" ? "Crédito" : "Débito";
 
+        // Calculate profit breakdown for description
+        const totalPartsCost = os.partsPrice || 0;
+        const outsourcedCost = os.cost || 0;
+        const consolidatedCost = totalPartsCost + outsourcedCost + cardFee + accessoryCost;
+        const profit = totalAmount - consolidatedCost;
+
+        const detailDescription = `Fecham. O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel}) - Total: R$ ${totalAmount.toFixed(2)} | Custo: R$ ${consolidatedCost.toFixed(2)} (Peça: R$ ${totalPartsCost.toFixed(2)}, Comissão: R$ ${outsourcedCost.toFixed(2)}, Acessórios: R$ ${accessoryCost.toFixed(2)}${cardFee > 0 ? `, Taxa: R$ ${cardFee.toFixed(2)}` : ""}) | Lucro: R$ ${profit.toFixed(2)} - ${methodLabel} - ${timeStr}`;
+
         await tx.financialTransaction.create({
           data: {
             type: "INCOME",
             companyId: session.companyId!,
             unitId: os.unitId,
             amount: remainder,
-            description: `Fecham. O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel}) - ${methodLabel} - ${timeStr}`,
+            description: detailDescription,
             category: "Venda de Serviços/Assistência",
             transactionDate: new Date(),
             userId: session.userId,
@@ -619,7 +629,7 @@ export async function finishAndBillServiceOrderAction(
         });
       }
 
-      // 4.1 Registrar custo terceirizado / insumos adicionais se houver
+      // 4.1 Registrar custo terceirizado / comissão do técnico se houver
       if (os.cost > 0 && register) {
         await tx.financialTransaction.create({
           data: {
@@ -629,6 +639,23 @@ export async function finishAndBillServiceOrderAction(
             amount: os.cost,
             description: `Custo Terceirizado O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Serviços",
+            transactionDate: new Date(),
+            userId: session.userId,
+            cashRegisterId: register.id,
+          },
+        });
+      }
+
+      // 4.2 Registrar custo de acessórios se houver
+      if (accessoryCost > 0 && register) {
+        await tx.financialTransaction.create({
+          data: {
+            type: "EXPENSE",
+            companyId: session.companyId!,
+            unitId: os.unitId,
+            amount: accessoryCost,
+            description: `Custo Acessórios O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
+            category: "Custo de Produtos",
             transactionDate: new Date(),
             userId: session.userId,
             cashRegisterId: register.id,
@@ -768,7 +795,7 @@ export async function addCustomPartToServiceOrderAction(
 }
 
 // 9. Update Service Order simple part name and cost (stored in partsPrice and checklist.partName)
-export async function updateServiceOrderPartAction(osId: string, partName: string, partCost: number) {
+export async function updateServiceOrderPartAction(osId: string, partName: string, partCost: number, accessoryCost: number = 0) {
   const session = await getSession();
   if (!session || !session.companyId) {
     return { error: "Sessão inválida ou expirada." };
@@ -782,7 +809,7 @@ export async function updateServiceOrderPartAction(osId: string, partName: strin
     if (!os) return { error: "O.S. não encontrada." };
     if (os.status === "DELIVERED") return { error: "Não é possível alterar uma O.S. já entregue." };
 
-    // Parse checklist and set partName
+    // Parse checklist and set partName & accessoryCost
     let checklistObj: Record<string, any> = {};
     try {
       checklistObj = JSON.parse(os.checklist || "{}");
@@ -791,6 +818,7 @@ export async function updateServiceOrderPartAction(osId: string, partName: strin
     }
 
     checklistObj.partName = partName.trim();
+    checklistObj.accessoryCost = accessoryCost || 0;
 
     await prisma.serviceOrder.update({
       where: { id: osId },
@@ -872,6 +900,7 @@ export async function reopenServiceOrderAction(osId: string) {
             { description: { startsWith: `Taxa Cartão - O.S. #${os.osNumber}` } },
             { description: { startsWith: `Custo Peças O.S. #${os.osNumber}` } },
             { description: { startsWith: `Custo Terceirizado O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Custo Acessórios O.S. #${os.osNumber}` } },
           ],
         },
       });

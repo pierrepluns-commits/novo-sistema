@@ -95,6 +95,7 @@ interface OSEditorClientProps {
   clients: Client[];
   availableParts: AvailablePart[];
   users?: User[];
+  defaultTab?: string;
 }
 
 const statusMap: Record<string, { label: string; color: string }> = {
@@ -113,11 +114,13 @@ const CHECKLIST_ITEMS = [
   "Botões Volume", "Wi-Fi", "Bluetooth / Rede", "Sensor Biométrico"
 ];
 
-export default function OSEditorClient({ os, clients, availableParts, users }: OSEditorClientProps) {
+export default function OSEditorClient({ os, clients, availableParts, users, defaultTab }: OSEditorClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [activeTab, setActiveTab] = useState<"general" | "technical" | "parts" | "billing">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "technical" | "parts" | "billing">(
+    (defaultTab as any) || "general"
+  );
   const [globalMessage, setGlobalMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   // --- TAB 1: General & Checklist State ---
@@ -245,6 +248,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
   // --- TAB 3: Simple Part Name & Cost State ---
   const [partNameInput, setPartNameInput] = useState(initialChecklistObj.partName || "");
   const [partCostInput, setPartCostInput] = useState(String(os.partsPrice || 0));
+  const [accessoryCostInput, setAccessoryCostInput] = useState(initialChecklistObj.accessoryCost !== undefined ? String(initialChecklistObj.accessoryCost) : "0");
 
   const handleUpdatePart = async () => {
     setGlobalMessage(null);
@@ -252,7 +256,8 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
       const res = await updateServiceOrderPartAction(
         os.id,
         partNameInput,
-        parseFloat(partCostInput) || 0
+        parseFloat(partCostInput) || 0,
+        parseFloat(accessoryCostInput) || 0
       );
       if (res.error) {
         setGlobalMessage({ text: res.error, type: "error" });
@@ -290,9 +295,23 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
 
   const totalPartsCost = os.partsPrice || 0;
   const outsourcedCost = parseFloat(osCost) || 0;
-  const consolidatedCost = totalPartsCost + outsourcedCost;
+  const accessoryCost = parseFloat(initialChecklistObj.accessoryCost) || 0;
+  const consolidatedCost = totalPartsCost + outsourcedCost + accessoryCost + (os.status === "DELIVERED" ? (os.cardFee || 0) : 0);
   const netProfit = finalTotalAmount - consolidatedCost;
   const margin = finalTotalAmount > 0 ? (netProfit / finalTotalAmount) * 100 : 0;
+
+  // Comparative calculations for the accounting comparison board (when active)
+  const cashLaborVal = parseFloat(techForm.servicePrice) || os.servicePrice;
+  const cardLaborVal = parseFloat(techForm.cardServicePrice) || os.servicePrice;
+
+  const totalCashCharged = cashLaborVal - discountNum;
+  const totalCardCharged = cardLaborVal - discountNum;
+
+  const cashNetProfit = totalCashCharged - (totalPartsCost + outsourcedCost + accessoryCost);
+  const cardNetProfit = totalCardCharged - (totalPartsCost + outsourcedCost + accessoryCost + (parseFloat(cardFee) || 0));
+
+  const cashMargin = totalCashCharged > 0 ? (cashNetProfit / totalCashCharged) * 100 : 0;
+  const cardMargin = totalCardCharged > 0 ? (cardNetProfit / totalCardCharged) * 100 : 0;
 
   const handleBillCheckout = async () => {
     setGlobalMessage(null);
@@ -651,7 +670,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
             {/* Status Flow */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">
                   Status da Ordem de Serviço
                 </label>
                 <select
@@ -672,7 +691,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
 
               {/* Service Labor price - Cash */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">
                   Mão de Obra à Vista (Dinheiro/PIX)
                 </label>
                 <div className="relative">
@@ -691,7 +710,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
 
               {/* Service Labor price - Card */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">
                   Mão de Obra no Cartão (Crédito/Débito)
                 </label>
                 <div className="relative">
@@ -850,7 +869,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
               mas é <strong>debitado automaticamente do seu faturamento</strong> no fechamento do caixa para calcular o lucro líquido real.
             </p>
 
-            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end">
+            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end font-bold text-white">
               {/* Part Name */}
               <div className="space-y-1.5 flex-[2] w-full">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Trocada</label>
@@ -882,6 +901,24 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                 </div>
               </div>
 
+              {/* Accessory Cost */}
+              <div className="space-y-1.5 flex-1 w-full">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Custo de Acessórios (R$)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={accessoryCostInput}
+                    disabled={os.status === "DELIVERED"}
+                    onChange={(e) => setAccessoryCostInput(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
+                  />
+                </div>
+              </div>
+
               {/* Save Button */}
               {os.status !== "DELIVERED" && (
                 <Button
@@ -898,14 +935,18 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
             {/* Visual Feedback Box */}
             <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-2 text-xs">
               <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Informações Atuais da O.S.</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <span className="text-slate-400">Peça Registrada: </span>
                   <span className="font-semibold text-white">{initialChecklistObj.partName ? initialChecklistObj.partName : "Nenhuma registrada"}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400">Custo Registrado: </span>
+                  <span className="text-slate-400">Custo da Peça: </span>
                   <span className="font-mono font-bold text-amber-500">R$ {(os.partsPrice || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Custo de Acessórios: </span>
+                  <span className="font-mono font-bold text-amber-500">R$ {(parseFloat(initialChecklistObj.accessoryCost) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
@@ -920,109 +961,137 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
               <span>Resumo do Orçamento & Fechamento Financeiro</span>
             </h3>
 
-            {/* Breakdown board */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Receipt / Invoice calculations */}
-              <div className="bg-[#090e1a] border border-slate-800 rounded-2xl p-6 space-y-6">
-                <div>
-                  <h4 className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800/80 pb-2">Resumo Financeiro (Valor Final)</h4>
-                  
-                  <div className="space-y-2.5 text-xs mt-3">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Mão de Obra (Serviço):</span>
-                      <span className="font-mono text-slate-200 font-semibold">R$ {activeLaborPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Peças Aplicadas:</span>
-                      <span className="font-mono text-slate-200 font-semibold">R$ 0,00 <span className="text-[10px] text-slate-500 font-bold">(Inclusas no serviço)</span></span>
-                    </div>
-
-                    {prepaymentNum > 0 && (
-                      <div className="flex justify-between text-emerald-400 font-bold">
-                        <span>Sinal / Adiantamento:</span>
-                        <span className="font-mono">- R$ {prepaymentNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    )}
-
-                    {/* Discount option */}
-                    <div className="flex justify-between items-center pt-2 border-t border-slate-800/60">
-                      <span className="text-slate-400">Desconto Concedido:</span>
-                      <div className="relative max-w-[120px]">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-[10px]">R$</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={billDiscount}
-                          disabled={os.status === "DELIVERED"}
-                          onChange={(e) => setBillDiscount(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-2 py-1 text-[11px] font-mono text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between border-t border-slate-800 pt-3 text-sm">
-                      <span className="text-slate-300 font-bold uppercase tracking-wider">Total Cobrado (Valor Final):</span>
-                      <span className="font-mono text-white font-extrabold text-sm">R$ {finalTotalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                    </div>
-
-                    <div className="flex justify-between border-t border-slate-800 pt-3 text-base">
-                      <span className="text-indigo-400 font-extrabold uppercase tracking-wider">Saldo a Receber:</span>
-                      <span className="font-mono text-indigo-400 font-black">R$ {remainderToPay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  </div>
+            {/* Top configuration panel (only when not delivered) */}
+            {os.status !== "DELIVERED" && (
+              <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-200">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Ajustes Pré-Fechamento</h4>
+                  <p className="text-[11px] text-slate-400">Digite um desconto se desejar. Ele atualizará os totais e as margens de lucro nos dois cenários de pagamento.</p>
                 </div>
-
-                {/* Detalhamento Contábil (Custo & Lucro) */}
-                <div className="border-t border-slate-800 pt-4 mt-4 space-y-2.5 text-xs">
-                  <h4 className="font-bold text-white uppercase tracking-wider text-[10px] pb-1 flex items-center gap-1.5 text-indigo-400">
-                    <Clipboard className="w-3.5 h-3.5" />
-                    <span>Detalhamento Contábil (Custo & Lucro)</span>
-                  </h4>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Custo das Peças (Estoque):</span>
-                    <span className="font-mono text-slate-200 font-semibold">
-                      R$ {totalPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Comissão do Técnico:</span>
-                    <span className="font-mono text-slate-200 font-semibold">
-                      R$ {outsourcedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between border-t border-slate-800/60 pt-1.5">
-                    <span className="text-slate-400 font-bold">Custo Total Consolidado:</span>
-                    <span className="font-mono text-slate-200 font-bold">
-                      R$ {consolidatedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between border-t border-slate-800 pt-2 text-xs">
-                    <span className="text-indigo-400 font-bold uppercase tracking-wider">Lucro Líquido Real da O.S.:</span>
-                    <span className="font-mono text-indigo-400 font-black text-sm">
-                      R$ {netProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-500">Margem de Lucro:</span>
-                    <span className="font-mono text-slate-400 font-semibold">
-                      {margin.toFixed(1)}%
-                    </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-300">Desconto Geral (R$):</span>
+                  <div className="relative max-w-[150px]">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">R$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={billDiscount}
+                      onChange={(e) => setBillDiscount(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2 text-xs font-mono text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    />
                   </div>
                 </div>
               </div>
+            )}
 
-              {/* Checkout billing state info */}
-              <div className="bg-slate-950/30 border border-slate-800/50 rounded-2xl p-6 flex flex-col justify-between">
-                
-                {os.status === "DELIVERED" ? (
+            {/* Breakdown board */}
+            {os.status === "DELIVERED" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Receipt / Invoice calculations */}
+                <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-6">
+                  <div>
+                    <h4 className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800/80 pb-2">Resumo Financeiro (Finalizado)</h4>
+                    
+                    <div className="space-y-2.5 text-xs mt-3">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Mão de Obra (Serviço):</span>
+                        <span className="font-mono text-slate-200 font-semibold">R$ {os.servicePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Peças Aplicadas:</span>
+                        <span className="font-mono text-slate-200 font-semibold">R$ 0,00 <span className="text-[10px] text-slate-500 font-bold">(Inclusas no serviço)</span></span>
+                      </div>
+
+                      {prepaymentNum > 0 && (
+                        <div className="flex justify-between text-emerald-400 font-bold">
+                          <span>Sinal / Adiantamento:</span>
+                          <span className="font-mono">- R$ {prepaymentNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+
+                      {os.discount > 0 && (
+                        <div className="flex justify-between text-amber-400 font-bold">
+                          <span>Desconto Concedido:</span>
+                          <span className="font-mono">- R$ {os.discount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between border-t border-slate-800 pt-3 text-sm">
+                        <span className="text-slate-300 font-bold uppercase tracking-wider">Total Cobrado (Valor Final):</span>
+                        <span className="font-mono text-white font-extrabold text-sm">R$ {os.totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      </div>
+
+                      <div className="flex justify-between border-t border-slate-800 pt-3 text-base">
+                        <span className="text-indigo-400 font-extrabold uppercase tracking-wider">Saldo Recebido:</span>
+                        <span className="font-mono text-indigo-400 font-black">R$ {Math.max(0, os.totalAmount - os.prepayment).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detalhamento Contábil (Custo & Lucro) */}
+                  <div className="border-t border-slate-800 pt-4 mt-4 space-y-2.5 text-xs">
+                    <h4 className="font-bold text-white uppercase tracking-wider text-[10px] pb-1 flex items-center gap-1.5 text-indigo-400">
+                      <Clipboard className="w-3.5 h-3.5" />
+                      <span>Detalhamento Contábil (Custo & Lucro)</span>
+                    </h4>
+                    
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Custo das Peças (Estoque):</span>
+                      <span className="font-mono text-slate-200 font-semibold">
+                        R$ {totalPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Custo de Acessórios:</span>
+                      <span className="font-mono text-slate-200 font-semibold">
+                        R$ {accessoryCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Comissão do Técnico:</span>
+                      <span className="font-mono text-slate-200 font-semibold">
+                        R$ {outsourcedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {os.cardFee > 0 && (
+                      <div className="flex justify-between text-rose-400">
+                        <span className="text-slate-400">Taxa da Maquininha:</span>
+                        <span className="font-mono font-semibold">
+                          R$ {os.cardFee.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between border-t border-slate-800/60 pt-1.5">
+                      <span className="text-slate-400 font-bold">Custo Total Consolidado:</span>
+                      <span className="font-mono text-slate-200 font-bold">
+                        R$ {consolidatedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between border-t border-slate-800 pt-2 text-xs">
+                      <span className="text-indigo-400 font-bold uppercase tracking-wider">Lucro Líquido Real da O.S.:</span>
+                      <span className="font-mono text-indigo-400 font-black text-sm">
+                        R$ {netProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500">Margem de Lucro:</span>
+                      <span className="font-mono text-slate-400 font-semibold">
+                        {margin.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Checkout billing state info */}
+                <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
                   <div className="space-y-4">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs rounded-lg">
                       <Check className="w-4 h-4" />
@@ -1041,30 +1110,171 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1">
-                        <Info className="w-4 h-4 text-indigo-400" />
-                        <span>Instruções de Faturamento</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Option 1: À Vista Scenario */}
+                  <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-4 flex flex-col justify-between animate-in fade-in duration-200">
+                    <div>
+                      <h4 className="font-bold text-emerald-400 uppercase tracking-wider text-xs border-b border-slate-800 pb-2 flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" />
+                        <span>Cenário Contábil À VISTA (Dinheiro/PIX)</span>
                       </h4>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        Ao clicar em faturar, o sistema deduzirá automaticamente as peças do estoque físico, registrará as movimentações e criará os lançamentos de receita e custos CMV correspondentes no caixa aberto.
-                      </p>
+
+                      <div className="space-y-2 text-xs mt-3">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Mão de Obra (Preço Cheio):</span>
+                          <span className="font-mono text-slate-200">R$ {cashLaborVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        {discountNum > 0 && (
+                          <div className="flex justify-between text-amber-500 font-semibold">
+                            <span>Desconto Geral:</span>
+                            <span className="font-mono">- R$ {discountNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {prepaymentNum > 0 && (
+                          <div className="flex justify-between text-indigo-400 font-semibold">
+                            <span>Sinal Pago:</span>
+                            <span className="font-mono">- R$ {prepaymentNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-slate-800/60 pt-2 text-xs font-bold text-white">
+                          <span>Total a Cobrar:</span>
+                          <span className="font-mono text-sm">R$ {totalCashCharged.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-slate-800/60 pt-1 text-xs font-extrabold text-indigo-300">
+                          <span>Saldo Restante a Receber:</span>
+                          <span className="font-mono text-sm">R$ {Math.max(0, totalCashCharged - prepaymentNum).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        {/* Deductions breakdown */}
+                        <div className="border-t border-slate-800 pt-3 mt-3 space-y-1.5 text-[11px]">
+                          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">Custos Internos (Deduções)</span>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Custo da Peça (Estoque):</span>
+                            <span className="font-mono text-slate-300">R$ {totalPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Custo de Acessórios:</span>
+                            <span className="font-mono text-slate-300">R$ {accessoryCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Comissão do Técnico:</span>
+                            <span className="font-mono text-slate-300">R$ {outsourcedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-slate-800/40 pt-1 text-slate-400">
+                            <span>Soma de Custos:</span>
+                            <span className="font-mono">R$ {(totalPartsCost + outsourcedCost + accessoryCost).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <Button
-                      onClick={() => setCheckoutModalOpen(true)}
-                      className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-2"
-                      icon={CreditCard}
-                    >
-                      Faturar & Entregar O.S.
-                    </Button>
+                    <div className="border-t border-slate-800 pt-4 mt-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-emerald-400 font-extrabold uppercase tracking-wider">Lucro Líquido Real:</span>
+                        <span className="font-mono text-emerald-400 font-black text-base">R$ {cashNetProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                        <span>Margem de Lucro:</span>
+                        <span className="font-mono">{cashMargin.toFixed(1)}%</span>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
 
-            </div>
+                  {/* Option 2: Cartão Scenario */}
+                  <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-4 flex flex-col justify-between animate-in fade-in duration-200">
+                    <div>
+                      <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-xs border-b border-slate-800 pb-2 flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        <span>Cenário Contábil NO CARTÃO (Crédito/Débito)</span>
+                      </h4>
+
+                      <div className="space-y-2 text-xs mt-3">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Mão de Obra (Preço Cartão):</span>
+                          <span className="font-mono text-slate-200">R$ {cardLaborVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        {discountNum > 0 && (
+                          <div className="flex justify-between text-amber-500 font-semibold">
+                            <span>Desconto Geral:</span>
+                            <span className="font-mono">- R$ {discountNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {prepaymentNum > 0 && (
+                          <div className="flex justify-between text-indigo-400 font-semibold">
+                            <span>Sinal Pago:</span>
+                            <span className="font-mono">- R$ {prepaymentNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-slate-800/60 pt-2 text-xs font-bold text-white">
+                          <span>Total a Cobrar:</span>
+                          <span className="font-mono text-sm">R$ {totalCardCharged.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-slate-800/60 pt-1 text-xs font-extrabold text-indigo-300">
+                          <span>Saldo Restante a Receber:</span>
+                          <span className="font-mono text-sm">R$ {Math.max(0, totalCardCharged - prepaymentNum).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        {/* Deductions breakdown */}
+                        <div className="border-t border-slate-800 pt-3 mt-3 space-y-1.5 text-[11px]">
+                          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">Custos Internos (Deduções)</span>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Custo da Peça (Estoque):</span>
+                            <span className="font-mono text-slate-300">R$ {totalPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Custo de Acessórios:</span>
+                            <span className="font-mono text-slate-300">R$ {accessoryCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Comissão do Técnico:</span>
+                            <span className="font-mono text-slate-300">R$ {outsourcedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-slate-800/40 pt-1 text-slate-400">
+                            <span>Soma de Custos:</span>
+                            <span className="font-mono">R$ {(totalPartsCost + outsourcedCost + accessoryCost).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-800 pt-4 mt-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-indigo-400 font-extrabold uppercase tracking-wider">Lucro Líquido Real:</span>
+                        <span className="font-mono text-indigo-400 font-black text-base">R$ {cardNetProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                        <span>Margem de Lucro:</span>
+                        <span className="font-mono">{cardMargin.toFixed(1)}% <span className="text-[9px] text-slate-500">(Menos taxa de cartão lançada)</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Finalize Button */}
+                <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in duration-200">
+                  <div className="space-y-1 text-left">
+                    <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                      <Info className="w-4 h-4 shrink-0" />
+                      <span>Instruções de Faturamento</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 leading-relaxed max-w-xl">
+                      Ao clicar em faturar, o sistema deduzirá automaticamente as peças e acessórios do estoque, registrará as movimentações e criará os lançamentos de receita e custos CMV correspondentes no caixa aberto.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setCheckoutModalOpen(true)}
+                    className="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-2 shrink-0"
+                    icon={CreditCard}
+                  >
+                    Faturar & Entregar O.S.
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1127,7 +1337,7 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                 <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
                   {/* Qty of installments */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Parcelas</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">Parcelas</label>
                     <select
                       value={installments}
                       onChange={(e) => setInstallments(e.target.value)}
@@ -1137,14 +1347,20 @@ export default function OSEditorClient({ os, clients, availableParts, users }: O
                       <option value="2">2x</option>
                       <option value="3">3x</option>
                       <option value="4">4x</option>
+                      <option value="5">5x</option>
                       <option value="6">6x</option>
+                      <option value="7">7x</option>
+                      <option value="8">8x</option>
+                      <option value="9">9x</option>
+                      <option value="10">10x</option>
+                      <option value="11">11x</option>
                       <option value="12">12x</option>
                     </select>
                   </div>
 
                   {/* Card fee */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Taxa da Maquininha (R$)</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">Taxa da Maquininha (R$)</label>
                     <input
                       type="number"
                       min="0"

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Search, ShoppingCart, Plus, Minus, Trash, Printer, Gift, Clock, CreditCard, Banknote, History, X, PackagePlus, Lock } from "lucide-react";
 import { createSale, cancelSale, getRecentSales, updateSaleFee } from "../actions/pdv";
 import { getReceiptConfig } from "../actions/config";
+import { ReprintReceiptButton } from "@/components/forms/CaixaClientForms";
 
 const DEFAULT_WARRANTY_TERMS = `TERMO DE GARANTIA E POLÍTICA DE TROCA (CONFORME LEI 8.078/90 - CDC)
 
@@ -566,9 +567,10 @@ export default function PDVPage() {
                             {sale.status === 'COMPLETED' ? 'Concluída' : 'Cancelada'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right flex items-center justify-end gap-1.5">
+                          <ReprintReceiptButton sale={sale} users={users} />
                           {sale.status === 'COMPLETED' && (
-                            <button onClick={() => handleCancelSale(sale.id)} className="text-red-400 hover:text-red-300 text-xs font-medium">Cancelar Estornar</button>
+                            <button onClick={() => handleCancelSale(sale.id)} className="text-red-400 hover:text-red-300 text-xs font-semibold hover:underline">Cancelar</button>
                           )}
                         </td>
                       </tr>

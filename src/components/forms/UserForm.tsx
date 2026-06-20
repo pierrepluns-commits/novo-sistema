@@ -14,6 +14,7 @@ const AVAILABLE_PERMISSIONS = [
   { id: "MANAGE_STOCK", label: "Adicionar/Remover Produtos do Estoque" },
   { id: "TRANSFER_STOCK", label: "Transferir Estoque entre Lojas" },
   { id: "VIEW_FINANCE", label: "Acessar Financeiro" },
+  { id: "DELETE_FINANCE", label: "Excluir Registros Financeiros" },
   { id: "MANAGE_USERS", label: "Gerenciar Usuários" },
 ];
 

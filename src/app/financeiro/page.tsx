@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { getSelectedUnitId } from "@/app/actions/unit";
 import { deleteTransaction } from "@/app/actions/finance";
-import { EditSaleModal } from "@/components/forms/CaixaClientForms";
+import { EditSaleModal, ReprintReceiptButton } from "@/components/forms/CaixaClientForms";
 import { PieChart } from "@/components/ui/PieChart";
 
 interface PageProps {
@@ -38,6 +38,9 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
   if (!session || !session.companyId) {
     return <div>Não autorizado</div>;
   }
+
+  const permissions = session.permissions ? JSON.parse(session.permissions) : [];
+  const canDelete = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN" || permissions.includes("ALL") || permissions.includes("DELETE_FINANCE");
 
   // Ação de servidor no nível do componente (evita o erro de definição dentro de loops)
   async function handleDeleteTransaction(formData: FormData) {
@@ -1203,20 +1206,25 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                             </td>
                             <td className="px-6 py-4 text-center">
                               {transaction.category === "Venda de Produtos" && relatedSale ? (
-                                <div className="flex items-center justify-center">
+                                <div className="flex items-center justify-center gap-1.5">
                                   <EditSaleModal sale={relatedSale as any} />
+                                  <ReprintReceiptButton sale={relatedSale as any} users={allUsers} />
                                 </div>
                               ) : transaction.category !== "Venda de Produtos" && transaction.category !== "Custo de Produtos" ? (
-                                <form action={handleDeleteTransaction} className="inline">
-                                  <input type="hidden" name="id" value={transaction.id} />
-                                  <button 
-                                    type="submit" 
-                                    className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-all"
-                                    title="Excluir Lançamento"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </form>
+                                canDelete ? (
+                                  <form action={handleDeleteTransaction} className="inline">
+                                    <input type="hidden" name="id" value={transaction.id} />
+                                    <button 
+                                      type="submit" 
+                                      className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-all cursor-pointer"
+                                      title="Excluir Lançamento"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </form>
+                                ) : (
+                                  <span className="text-[10px] text-slate-600 font-bold uppercase">Sem Permissão</span>
+                                )
                               ) : (
                                 <span className="text-[10px] text-slate-600 font-bold uppercase">Automático</span>
                               )}

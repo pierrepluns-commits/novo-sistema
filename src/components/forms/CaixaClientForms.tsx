@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { addManualCashTransaction, updateOpeningBalance } from "@/app/actions/caixa";
 import { updateSaleFee, updateSaleDetails } from "@/app/actions/pdv";
 import toast from "react-hot-toast";
-import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator, Printer } from "lucide-react";
 
 // ==========================================
 // 1. INLINE CARD FEE EDITOR component
@@ -657,3 +657,215 @@ export function EditOpeningBalance({ registerId, initialBalance }: EditOpeningBa
   );
 }
 
+// ==========================================
+// 4. REPRINT RECEIPT BUTTON Component
+// ==========================================
+export function ReprintReceiptButton({ sale, users }: { sale: any, users?: any[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [receiptConfig, setReceiptConfig] = useState<any>(null);
+
+  const handleReprint = async () => {
+    setIsOpen(true);
+    if (!receiptConfig) {
+      try {
+        const { getReceiptConfig } = await import("@/app/actions/config");
+        const data = await getReceiptConfig();
+        setReceiptConfig(data);
+      } catch (err) {
+        console.error("Failed to load receipt config", err);
+      }
+    }
+  };
+
+  const parsedReceiptConfig = (() => {
+    try {
+      return JSON.parse(receiptConfig?.receiptConfig || "{}");
+    } catch (e) {
+      return {};
+    }
+  })();
+
+  const paperWidth = parsedReceiptConfig.paperWidth || "80mm";
+  const margins = parsedReceiptConfig.margins || "8px";
+  const showCashier = parsedReceiptConfig.showCashier ?? true;
+  const showDocument = parsedReceiptConfig.showDocument ?? true;
+  const showAddress = parsedReceiptConfig.showAddress ?? true;
+  const showContact = parsedReceiptConfig.showContact ?? true;
+
+  const cartItems = sale.cartItems || sale.items?.map((item: any) => ({
+    id: item.productId,
+    name: item.product?.name || "Produto",
+    price: item.unitPrice,
+    cartQuantity: item.quantity,
+    isFreebie: item.isFreebie
+  })) || [];
+
+  const sellerName = sale.user?.name || users?.find((u: any) => u.id === sale.userId)?.name || "Vendedor";
+
+  return (
+    <>
+      <button
+        onClick={handleReprint}
+        className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 rounded transition-all flex items-center gap-1 text-xs border border-slate-700/30 hover:border-slate-750 cursor-pointer animate-in fade-in duration-200"
+        title="Reimprimir Nota"
+      >
+        <Printer className="w-3.5 h-3.5" />
+        <span>Imprimir</span>
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 text-left font-sans">
+          <div className="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-xl shadow-2xl flex flex-col print:shadow-none print:w-[80mm] print:bg-white print:text-black">
+            
+            {/* Dynamic CSS for Print Bobbin styling */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #reprint-receipt-${sale.id}, #reprint-receipt-${sale.id} * {
+                  visibility: visible !important;
+                }
+                #reprint-receipt-${sale.id} {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: ${paperWidth} !important;
+                  padding: ${margins} !important;
+                  margin: 0 !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  background: white !important;
+                  color: black !important;
+                }
+                @page {
+                  margin: 0;
+                }
+              }
+            ` }} />
+
+            {/* The printable area */}
+            <div 
+              style={{ 
+                width: paperWidth === "58mm" ? "240px" : "330px", 
+                padding: margins 
+              }}
+              className="bg-white text-black font-mono shadow-inner text-xs p-6" 
+              id={`reprint-receipt-${sale.id}`}
+            >
+              <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
+                <h2 className="font-extrabold text-base uppercase tracking-tight">
+                  {(receiptConfig?.unitName || receiptConfig?.companyName || "CYBER ERP").toUpperCase()}
+                </h2>
+                
+                {showDocument && (receiptConfig?.unitDocument || receiptConfig?.companyDocument) && (
+                  <p className="text-[10px] text-gray-700 mt-0.5 font-bold">
+                    CNPJ/CPF: {receiptConfig?.unitDocument || receiptConfig?.companyDocument}
+                  </p>
+                )}
+                
+                {showAddress && receiptConfig?.unitAddress && (
+                  <p className="text-[9px] text-gray-600 mt-0.5 leading-tight">
+                    {receiptConfig.unitAddress}
+                  </p>
+                )}
+                
+                {showContact && receiptConfig?.unitContact && (
+                  <p className="text-[9px] text-gray-600 mt-0.5 font-bold">
+                    {receiptConfig.unitContact}
+                  </p>
+                )}
+
+                {receiptConfig?.receiptHeader && (
+                  <p className="text-[10px] italic border-t border-b border-dashed border-gray-300 py-1 my-1.5 text-gray-800 break-words whitespace-pre-line">
+                    {receiptConfig.receiptHeader}
+                  </p>
+                )}
+
+                <p className="text-[10px] font-bold mt-2">RECIBO #{sale.id.split("-")[0].toUpperCase()}</p>
+                <p className="text-[9px] text-gray-500">{new Date(sale.createdAt).toLocaleString("pt-BR")}</p>
+                
+                {showCashier && (
+                  <p className="text-[9px] text-gray-600 font-semibold mt-0.5">
+                    VENDEDOR: {sellerName.toUpperCase()}
+                  </p>
+                )}
+              </div>
+
+              <div className="mb-4">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-dashed border-gray-400">
+                      <th className="text-left py-1">QTD</th>
+                      <th className="text-left py-1">ITEM</th>
+                      <th className="text-right py-1">UN(R$)</th>
+                      <th className="text-right py-1">TOT(R$)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cartItems.map((item: any, idx: number) => (
+                      <tr key={idx}>
+                        <td className="py-1">{item.cartQuantity}</td>
+                        <td className="py-1">{item.name} {item.isFreebie && "(Brinde)"}</td>
+                        <td className="text-right py-1">{item.isFreebie ? "0.00" : item.price.toFixed(2)}</td>
+                        <td className="text-right py-1">{item.isFreebie ? "0.00" : (item.price * item.cartQuantity).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="border-t border-dashed border-gray-400 pt-2 text-right">
+                <p className="text-xs text-gray-600">Subtotal: R$ {sale.totalAmount.toFixed(2)}</p>
+                <p className="text-sm font-bold mt-1">TOTAL: R$ {sale.totalAmount.toFixed(2)}</p>
+                <p className="text-xs mt-2 text-gray-600 uppercase">PAGAMENTO: {sale.paymentMethod}</p>
+              </div>
+
+              <div className="text-center mt-4 pt-3 border-t border-dashed border-gray-400">
+                <div className="text-[9px] text-gray-700 whitespace-pre-line leading-relaxed text-left">
+                  {receiptConfig?.receiptFooter || `TERMO DE GARANTIA E POLÍTICA DE TROCA (CONFORME LEI 8.078/90 - CDC)
+
+1. DA GARANTIA LEGAL (Art. 26, CDC): A loja concede garantia de 30 (trinta) dias para produtos eletrônicos e periféricos contra defeitos de fabricação, contados a partir da data da compra.
+
+2. DO DIREITO DE ARREPENDIMENTO E TESTE FUNCIONAL (Art. 49, CDC):
+O Direito de Arrependimento (7 dias) é aplicável EXCLUSIVAMENTE a compras realizadas fora do estabelecimento (Internet/Telefone).
+COMPRAS PRESENCIAIS: O cliente declara que, no ato da compra, teve acesso ao produto e, em casos aplicáveis, o mesmo foi TESTADO E APRESENTOU FUNCIONALIDADE NORMAL. Comprovado o pleno funcionamento no estabelecimento, NÃO EXISTE DIREITO A ARREPENDIMENTO, desistência ou troca por erro de escolha.
+
+3. DA ALEGAÇÃO DE DEFEITO E TESTE DE BANCADA:
+Em casos de reclamação de vício, o produto será submetido a teste técnico imediato no balcão.
+PRODUTO EM PLENO FUNCIONAMENTO: Se, após o teste na loja, o produto apresentar funcionamento normal, a troca será sumariamente NEGADA. Nestes casos, entende-se que a falha relatada decorre de incompatibilidade, configuração incorreta ou falta de perícia do usuário, não sendo de responsabilidade da loja.
+DANOS ADVERSOS À FABRICAÇÃO: Caso o produto apresente defeito visível ou funcional decorrente de fatores externos ocorridos após a saída da loja (picos de energia, quedas, umidade, pressão ou uso de fontes incompatíveis), a CONTRATADA se resguarda o direito de NÃO REALIZAR A TROCA, NÃO DEVOLVER VALORES E NÃO GERAR VALE-CRÉDITO, visto que a garantia cobre apenas vícios de fabricação.
+
+4. DO BENEFÍCIO DE TROCA (48H ÚTEIS):
+A substituição imediata só ocorre em até 48 horas úteis caso o defeito de fabricação seja real e comprovado pelo técnico da loja. Após este prazo, segue o rito do Art. 18 do CDC (prazo de até 30 dias para solução).
+
+5. ITENS SEM GARANTIA (CONSUMO IMEDIATO):
+I. PELÍCULAS: A garantia cessa após a aplicação. Não cobrimos danos pós-venda.
+II. SERVIÇOS DE IMPRESSÃO/XEROX: Conferência obrigatória na entrega.
+III. CAPAS: Sem garantia contra amarelamento ou danos de uso.
+
+6. POLÍTICA DE REEMBOLSO E VALE-CRÉDITO:
+A empresa NÃO REALIZA DEVOLUÇÃO DE VALORES EM ESPÉCIE/DINHEIRO.
+Na impossibilidade de reparo ou troca por item idêntico, o ressarcimento será feito via VALE-CRÉDITO (Voucher) com validade de 30 dias.
+
+7. EXCLUSÃO DE GARANTIA:
+Anulação automática em caso de fios cortados, conectores oxidados/quebrados, selos violados ou qualquer sinal de impacto físico.`}
+                </div>
+                <div className="mt-4 flex justify-center opacity-50">
+                   {/* Fake Barcode */}
+                   <div className="h-8 w-40 bg-[repeating-linear-gradient(90deg,#000,#000_2px,transparent_2px,transparent_4px)]"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions (hidden in print) */}
+            <div className="p-4 border-t border-border bg-[#0f172a] flex gap-3 print:hidden rounded-b-xl">
+              <Button variant="outline" className="flex-1" onClick={() => setIsOpen(false)}>Fechar</Button>
+              <Button variant="primary" className="flex-1" icon={Printer} onClick={() => window.print()}>Imprimir</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

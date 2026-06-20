@@ -47,6 +47,14 @@ export async function deleteTransaction(id: string) {
   const session = await getSession();
   if (!session || !session.companyId) throw new Error("Não autorizado");
 
+  // Verificar permissão de exclusão do financeiro
+  const permissions = session.permissions ? JSON.parse(session.permissions) : [];
+  const canDelete = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN" || permissions.includes("ALL") || permissions.includes("DELETE_FINANCE");
+  
+  if (!canDelete) {
+    throw new Error("Você não tem permissão para excluir lançamentos financeiros.");
+  }
+
   const tx = await prisma.financialTransaction.findUnique({ where: { id } });
   if (tx?.companyId === session.companyId) {
     await prisma.financialTransaction.delete({

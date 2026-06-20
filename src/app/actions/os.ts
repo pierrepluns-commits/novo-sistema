@@ -933,3 +933,99 @@ export async function reopenServiceOrderAction(osId: string) {
     return { error: "Erro ao reabrir Ordem de Serviço: " + error.message };
   }
 }
+
+// 11. Delete Service Order (Exclusão definitiva com estorno)
+export async function deleteServiceOrderAction(osId: string) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  // Verificar permissão
+  const permissions = session.permissions ? JSON.parse(session.permissions) : [];
+  const canDelete = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN" || permissions.includes("ALL") || permissions.includes("DELETE_OS");
+  
+  if (!canDelete) {
+    return { error: "Você não tem permissão para excluir Ordens de Serviço." };
+  }
+
+  try {
+    const os = await prisma.serviceOrder.findUnique({
+      where: { id: osId, companyId: session.companyId },
+      include: { items: true }
+    });
+
+    if (!os) return { error: "O.S. não encontrada." };
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Se estiver faturada (DELIVERED), precisamos primeiro estornar o estoque e deletar lançamentos de caixa
+      if (os.status === "DELIVERED") {
+        // Restaurar o estoque físico das peças aplicadas
+        for (const item of os.items) {
+          const stock = await tx.stock.findUnique({
+            where: { productId_unitId: { productId: item.productId, unitId: os.unitId } },
+          });
+
+          if (stock) {
+            await tx.stock.update({
+              where: { id: stock.id },
+              data: { quantity: { increment: item.quantity } },
+            });
+          }
+        }
+
+        // Remover movimentações de estoque
+        await tx.stockMovement.deleteMany({
+          where: {
+            referenceId: os.id,
+            type: "OUT",
+          },
+        });
+
+        // Remover lançamentos de fluxo de caixa
+        await tx.financialTransaction.deleteMany({
+          where: {
+            companyId: session.companyId!,
+            unitId: os.unitId,
+            OR: [
+              { description: { startsWith: `Fecham. O.S. #${os.osNumber}` } },
+              { description: { startsWith: `Taxa Cartão - O.S. #${os.osNumber}` } },
+              { description: { startsWith: `Custo Peças O.S. #${os.osNumber}` } },
+              { description: { startsWith: `Custo Terceirizado O.S. #${os.osNumber}` } },
+              { description: { startsWith: `Custo Acessórios O.S. #${os.osNumber}` } },
+            ],
+          },
+        });
+      }
+
+      // Se houver sinal/adiantamento pago na abertura, também removemos o lançamento dele
+      await tx.financialTransaction.deleteMany({
+        where: {
+          companyId: session.companyId!,
+          unitId: os.unitId,
+          description: { startsWith: `Sinal O.S. #${os.osNumber}` },
+        },
+      });
+
+      // 2. Deletar itens da O.S.
+      await tx.serviceOrderItem.deleteMany({
+        where: { serviceOrderId: osId },
+      });
+
+      // 3. Deletar a O.S. propriamente dita
+      await tx.serviceOrder.delete({
+        where: { id: osId },
+      });
+    });
+
+    revalidatePath("/os");
+    revalidatePath("/financeiro");
+    revalidatePath("/estoque");
+    revalidatePath("/caixa");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error(error);
+    return { error: "Erro ao excluir Ordem de Serviço: " + error.message };
+  }
+}

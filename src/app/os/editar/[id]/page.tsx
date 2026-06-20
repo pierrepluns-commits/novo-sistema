@@ -88,6 +88,8 @@ export default async function EditOSPage({ params, searchParams }: PageProps) {
       availableParts={availableParts} 
       users={users as any}
       defaultTab={tab}
+      currentUserRole={session.role}
+      currentUserPermissions={session.permissions ? JSON.parse(session.permissions) : []}
     />
   );
 }

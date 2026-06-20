@@ -10,6 +10,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { getSelectedUnitId } from "@/app/actions/unit";
+import OSListActions from "@/components/forms/OSListActions";
 
 interface PageProps {
   searchParams: Promise<{ query?: string; tab?: string }>;
@@ -344,6 +345,15 @@ export default async function OSPage({ searchParams }: PageProps) {
                               </button>
                             </Link>
                           )}
+                          <OSListActions
+                            osId={os.id}
+                            osNumber={os.osNumber}
+                            status={os.status}
+                            equipmentBrand={os.equipmentBrand}
+                            equipmentModel={os.equipmentModel}
+                            currentUserRole={session.role}
+                            currentUserPermissions={session.permissions ? JSON.parse(session.permissions) : []}
+                          />
                         </div>
                       </td>
                     </tr>

@@ -16,7 +16,8 @@ import {
   finishAndBillServiceOrderAction,
   cancelServiceOrderAction,
   updateServiceOrderPartAction,
-  reopenServiceOrderAction
+  reopenServiceOrderAction,
+  deleteServiceOrderAction
 } from "../../../actions/os";
 import Link from "next/link";
 
@@ -96,6 +97,8 @@ interface OSEditorClientProps {
   availableParts: AvailablePart[];
   users?: User[];
   defaultTab?: string;
+  currentUserRole?: string;
+  currentUserPermissions?: string[];
 }
 
 const statusMap: Record<string, { label: string; color: string }> = {
@@ -114,7 +117,15 @@ const CHECKLIST_ITEMS = [
   "Botões Volume", "Wi-Fi", "Bluetooth / Rede", "Sensor Biométrico"
 ];
 
-export default function OSEditorClient({ os, clients, availableParts, users, defaultTab }: OSEditorClientProps) {
+export default function OSEditorClient({ 
+  os, 
+  clients, 
+  availableParts, 
+  users, 
+  defaultTab, 
+  currentUserRole, 
+  currentUserPermissions = [] 
+}: OSEditorClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -364,6 +375,27 @@ export default function OSEditorClient({ os, clients, availableParts, users, def
     });
   };
 
+  const handleDeleteOS = async () => {
+    if (!confirm("ATENÇÃO: Você tem certeza que deseja EXCLUIR DEFINITIVAMENTE esta Ordem de Serviço? Todos os lançamentos financeiros vinculados, adiantamentos e baixas de estoque físico correspondentes serão excluídos permanentemente. Esta ação NÃO pode ser desfeita.")) return;
+    
+    const pwd = prompt("Para confirmar a exclusão definitiva, digite 'EXCLUIR':");
+    if (pwd !== "EXCLUIR") {
+      alert("Confirmação incorreta. Operação cancelada.");
+      return;
+    }
+
+    setGlobalMessage(null);
+    startTransition(async () => {
+      const res = await deleteServiceOrderAction(os.id);
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+      } else {
+        alert("Ordem de Serviço excluída com sucesso!");
+        router.push("/os");
+      }
+    });
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header with quick stats */}
@@ -406,6 +438,17 @@ export default function OSEditorClient({ os, clients, availableParts, users, def
               disabled={isPending}
             >
               Sem Conserto
+            </Button>
+          )}
+          {(currentUserRole === "SUPER_ADMIN" || currentUserRole === "COMPANY_ADMIN" || currentUserPermissions.includes("DELETE_OS") || currentUserPermissions.includes("ALL")) && (
+            <Button 
+              onClick={handleDeleteOS} 
+              variant="ghost" 
+              className="text-rose-500 hover:bg-rose-500/10 border border-rose-500/20 font-bold"
+              disabled={isPending}
+              icon={Trash2}
+            >
+              Apagar O.S.
             </Button>
           )}
         </div>

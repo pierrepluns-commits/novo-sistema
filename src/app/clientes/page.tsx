@@ -94,9 +94,38 @@ export default function ClientesPage() {
     fetchClients(searchQuery);
   };
 
+  const formatCep = (value: string) => {
+    const clean = value.replace(/\D/g, "");
+    if (clean.length <= 5) return clean;
+    return `${clean.slice(0, 5)}-${clean.slice(5, 8)}`;
+  };
+
+  const fetchAddressByCep = async (cleanCep: string) => {
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setFormData((prev) => ({
+          ...prev,
+          street: `${data.logradouro}${data.bairro ? ` - ${data.bairro}` : ""}${data.localidade ? `, ${data.localidade}` : ""}${data.uf ? ` - ${data.uf}` : ""}`,
+        }));
+      }
+    } catch (err) {
+      console.error("Erro ao buscar CEP:", err);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let finalValue = value;
+    if (name === "cep") {
+      finalValue = formatCep(value);
+      const clean = finalValue.replace(/\D/g, "");
+      if (clean.length === 8) {
+        fetchAddressByCep(clean);
+      }
+    }
+    setFormData((prev) => ({ ...prev, [name]: finalValue }));
   };
 
   const openNewModal = () => {

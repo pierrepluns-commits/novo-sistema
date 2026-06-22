@@ -135,6 +135,38 @@ export default function NovaOSPage() {
     setSearchResults([]);
   };
 
+  const handleClientCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const clean = val.replace(/\D/g, "");
+    
+    let formatted = val;
+    if (clean.length > 5) {
+      formatted = `${clean.slice(0, 5)}-${clean.slice(5, 8)}`;
+    } else {
+      formatted = clean;
+    }
+
+    setClientForm((prev) => ({ ...prev, cep: formatted }));
+
+    if (clean.length === 8) {
+      const fetchAddress = async () => {
+        try {
+          const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+          const data = await res.json();
+          if (!data.erro) {
+            setClientForm((prev) => ({
+              ...prev,
+              street: `${data.logradouro}${data.bairro ? ` - ${data.bairro}` : ""}${data.localidade ? `, ${data.localidade}` : ""}${data.uf ? ` - ${data.uf}` : ""}`,
+            }));
+          }
+        } catch (err) {
+          console.error("Erro ao buscar CEP:", err);
+        }
+      };
+      fetchAddress();
+    }
+  };
+
   // Quick Client Creation
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -822,7 +854,7 @@ export default function NovaOSPage() {
                     type="text"
                     placeholder="00000-000"
                     value={clientForm.cep}
-                    onChange={(e) => setClientForm((prev) => ({ ...prev, cep: e.target.value }))}
+                    onChange={handleClientCepChange}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none font-mono"
                   />
                 </div>

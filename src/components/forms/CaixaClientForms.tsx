@@ -3,9 +3,10 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { addManualCashTransaction, updateOpeningBalance } from "@/app/actions/caixa";
-import { updateSaleFee, updateSaleDetails } from "@/app/actions/pdv";
+import { updateSaleFee, updateSaleDetails, cancelSale } from "@/app/actions/pdv";
 import toast from "react-hot-toast";
-import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator, Printer } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator, Printer, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // ==========================================
 // 1. INLINE CARD FEE EDITOR component
@@ -102,9 +103,11 @@ interface EditSaleModalProps {
     createdAt?: Date | string;
     items: Array<{ product?: { name: string } | null }>;
   };
+  canDelete?: boolean;
 }
 
-export function EditSaleModal({ sale }: EditSaleModalProps) {
+export function EditSaleModal({ sale, canDelete }: EditSaleModalProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(sale.paymentMethod);
   const [cardFee, setCardFee] = useState<string>(sale.cardFee.toFixed(2));
@@ -141,8 +144,30 @@ export function EditSaleModal({ sale }: EditSaleModalProps) {
       await updateSaleDetails(sale.id, paymentMethod, numericFee, customDate || undefined);
       toast.success("Venda editada com sucesso!");
       setIsOpen(false);
+      router.refresh();
     } catch (e: any) {
       toast.error(e.message || "Erro ao editar venda.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!confirm("Tem certeza que deseja estornar esta venda? Isso devolverá os produtos ao estoque e removerá os lançamentos financeiros correspondentes.")) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await cancelSale(sale.id);
+      if (res && (res as any).error) {
+        toast.error((res as any).error);
+      } else {
+        toast.success("Venda estornada e estoque devolvido com sucesso!");
+        setIsOpen(false);
+        router.refresh();
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao estornar venda.");
     } finally {
       setLoading(false);
     }
@@ -238,22 +263,39 @@ export function EditSaleModal({ sale }: EditSaleModalProps) {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  disabled={loading}
-                  className="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-white rounded-lg border border-slate-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-lg text-xs"
-                >
-                  {loading ? "Salvando..." : "Salvar Alterações"}
-                </Button>
+              <div className="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                {canDelete ? (
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={loading}
+                    className="px-3 py-2 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Estornar Venda"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Estornar</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    disabled={loading}
+                    className="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-white rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                  >
+                    Fechar
+                  </button>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-lg text-xs"
+                  >
+                    {loading ? "Salvando..." : "Salvar Alterações"}
+                  </Button>
+                </div>
               </div>
             </form>
           </div>

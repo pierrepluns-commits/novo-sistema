@@ -261,6 +261,14 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     for (const item of os.items) {
       osPartsCost += item.quantity * (item.unitCost || 0);
     }
+    // Inclui peças avulsas e custo de acessórios do checklist
+    osPartsCost += os.partsPrice || 0;
+    let accessoryCost = 0;
+    try {
+      const checklistObj = JSON.parse(os.checklist || "{}");
+      accessoryCost = parseFloat(checklistObj.accessoryCost) || 0;
+    } catch {}
+    osPartsCost += accessoryCost;
   }
 
   // 5. Custos Terceirizados / Insumos de O.S.
@@ -337,7 +345,16 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     }
 
     // CMV O.S. (Peças)
-    const osParts = monthOS.reduce((acc, o) => acc + o.items.reduce((sum: number, item: any) => sum + item.quantity * (item.unitCost || 0), 0), 0);
+    const osParts = monthOS.reduce((acc, o) => {
+      let partsCost = o.items.reduce((sum: number, item: any) => sum + item.quantity * (item.unitCost || 0), 0);
+      partsCost += o.partsPrice || 0;
+      let accessoryCost = 0;
+      try {
+        const checklistObj = JSON.parse(o.checklist || "{}");
+        accessoryCost = parseFloat(checklistObj.accessoryCost) || 0;
+      } catch {}
+      return acc + partsCost + accessoryCost;
+    }, 0);
     // Custo Terceirizado
     const osCustom = monthOS.reduce((acc, o) => acc + o.cost, 0);
     const totalCosts = cmvPDV + osParts + osCustom;
@@ -877,9 +894,9 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                 <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
                   <ShoppingBag className="w-5 h-5" />
                 </div>
-                <h3 className="text-slate-400 font-semibold text-sm">Custo Mercadoria (CMV)</h3>
+                <h3 className="text-slate-400 font-semibold text-sm">Custos (CMV / Serviços)</h3>
               </div>
-              <p className="text-3xl font-black val-cost font-mono">R$ {displayCMV.toFixed(2)}</p>
+              <p className="text-3xl font-black val-cost font-mono">R$ {(displayCMV + displayOSCost).toFixed(2)}</p>
             </div>
 
             <div className={`card-glow p-6 rounded-2xl flex flex-col justify-between h-36 ${netProfit >= 0 ? "border-emerald-500/20" : "border-rose-500/20"}`}>
@@ -1207,7 +1224,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                             <td className="px-6 py-4 text-center">
                               {transaction.category === "Venda de Produtos" && relatedSale ? (
                                 <div className="flex items-center justify-center gap-1.5">
-                                  <EditSaleModal sale={relatedSale as any} />
+                                  <EditSaleModal sale={relatedSale as any} canDelete={canDelete} />
                                   <ReprintReceiptButton sale={relatedSale as any} users={allUsers} />
                                 </div>
                               ) : transaction.category !== "Venda de Produtos" && transaction.category !== "Custo de Produtos" ? (

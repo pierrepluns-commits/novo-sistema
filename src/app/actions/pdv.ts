@@ -299,31 +299,15 @@ export async function cancelSale(saleId: string) {
       }
     }
 
-    if (sale.totalAmount > 0) {
-      // Tentar achar caixa aberto para atrelar estorno
-      const register = await tx.cashRegister.findFirst({
-        where: { unitId: sale.unitId, status: "OPEN" }
-      });
-
-      const paymentMethodLabel = 
-        sale.paymentMethod === "CASH" ? "Dinheiro" : 
-        sale.paymentMethod === "PIX" ? "PIX" : 
-        sale.paymentMethod === "CREDIT_CARD" ? "Crédito" : "Débito";
-
-      await tx.financialTransaction.create({
-        data: {
-          type: "EXPENSE",
-          companyId: session.companyId!,
-          unitId: sale.unitId,
-          amount: sale.totalAmount,
-          description: `Estorno Venda #${sale.id.split("-")[0]} - ${paymentMethodLabel}`,
-          category: "Estorno",
-          transactionDate: new Date(),
-          userId: session.userId,
-          cashRegisterId: register ? register.id : null
-        }
-      });
-    }
+    // Excluir transações financeiras relacionadas a esta venda para restaurar o caixa de forma limpa
+    const shortId = sale.id.split("-")[0].toUpperCase();
+    await tx.financialTransaction.deleteMany({
+      where: {
+        companyId: session.companyId!,
+        unitId: sale.unitId,
+        description: { contains: `#${shortId}` }
+      }
+    });
 
     // Gerar log de auditoria de estorno
     for (const item of sale.items) {

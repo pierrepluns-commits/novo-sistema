@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { 
   Smartphone, Clipboard, CheckSquare, Wrench, Shield, 
   DollarSign, Loader2, Save, Printer, Plus, Trash2, X, 
-  Check, CreditCard, ChevronRight, Info, AlertTriangle 
+  Check, CreditCard, ChevronRight, Info, AlertTriangle, ArrowRightLeft
 } from "lucide-react";
 import { 
   updateServiceOrderAction, 
@@ -17,7 +17,8 @@ import {
   cancelServiceOrderAction,
   updateServiceOrderPartAction,
   reopenServiceOrderAction,
-  deleteServiceOrderAction
+  deleteServiceOrderAction,
+  transferServiceOrderAction
 } from "../../../actions/os";
 import Link from "next/link";
 
@@ -44,6 +45,7 @@ interface ServiceOrder {
   id: string;
   osNumber: number;
   clientId: string;
+  unitId: string;
   userId: string | null;
   equipmentType: string;
   equipmentBrand: string;
@@ -96,6 +98,7 @@ interface OSEditorClientProps {
   clients: Client[];
   availableParts: AvailablePart[];
   users?: User[];
+  units?: Array<{ id: string; name: string }>;
   defaultTab?: string;
   currentUserRole?: string;
   currentUserPermissions?: string[];
@@ -122,6 +125,7 @@ export default function OSEditorClient({
   clients, 
   availableParts, 
   users, 
+  units = [],
   defaultTab, 
   currentUserRole, 
   currentUserPermissions = [] 
@@ -396,6 +400,35 @@ export default function OSEditorClient({
     });
   };
 
+  // --- O.S. Transfer State & Handler ---
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [targetUnitId, setTargetUnitId] = useState("");
+
+  const handleTransferOS = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetUnitId) {
+      alert("Por favor, selecione uma unidade de destino.");
+      return;
+    }
+
+    const selectedUnitName = units.find((u: any) => u.id === targetUnitId)?.name || "outra unidade";
+    if (!confirm(`Tem certeza que deseja transferir esta O.S. para a unidade ${selectedUnitName}? Todos os custos, peças, sinais, faturamento e lucros correspondentes passarão a ser contabilizados nesta nova unidade.`)) {
+      return;
+    }
+
+    setGlobalMessage(null);
+    startTransition(async () => {
+      const res = await transferServiceOrderAction(os.id, targetUnitId);
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+        setTransferModalOpen(false);
+      } else {
+        alert("Ordem de Serviço transferida com sucesso!");
+        router.push("/os");
+      }
+    });
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header with quick stats */}
@@ -449,6 +482,17 @@ export default function OSEditorClient({
               icon={Trash2}
             >
               Apagar O.S.
+            </Button>
+          )}
+          {(currentUserRole === "SUPER_ADMIN" || currentUserRole === "COMPANY_ADMIN") && (
+            <Button 
+              onClick={() => setTransferModalOpen(true)} 
+              variant="ghost" 
+              className="text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 font-bold font-semibold cursor-pointer"
+              disabled={isPending}
+              icon={ArrowRightLeft}
+            >
+              Transferir Unidade
             </Button>
           )}
         </div>
@@ -1452,6 +1496,66 @@ export default function OSEditorClient({
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Transfer O.S. Modal */}
+      {transferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200 text-left">
+            <button
+              onClick={() => setTransferModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-cyan-400" />
+              Transferir O.S. para Outra Unidade
+            </h3>
+            
+            <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+              Esta ação moverá esta Ordem de Serviço (O.S. #{String(os.osNumber).padStart(4, "0")}) para a unidade selecionada.
+              <br /><br />
+              <strong className="text-amber-400">Importante:</strong> Todos os custos, peças, sinais, faturamento e lucros recebidos por esta O.S. passarão a ser contabilizados na unidade de destino.
+            </p>
+
+            <form onSubmit={handleTransferOS} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Unidade de Destino</label>
+                <select
+                  value={targetUnitId}
+                  onChange={(e) => setTargetUnitId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-850 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 font-bold"
+                  required
+                >
+                  <option value="">Selecione a unidade...</option>
+                  {units.filter((u: any) => u.id !== os.unitId).map((u: any) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setTransferModalOpen(false)}
+                  disabled={isPending}
+                  className="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-white rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-lg text-xs cursor-pointer"
+                >
+                  {isPending ? "Transferindo..." : "Confirmar Transferência"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

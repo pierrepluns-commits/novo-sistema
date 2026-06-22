@@ -79,6 +79,12 @@ export default async function EditOSPage({ params, searchParams }: PageProps) {
     orderBy: { name: "asc" },
   });
 
+  // 5. Fetch all units for O.S. transfer option
+  const units = await prisma.unit.findMany({
+    where: { companyId: session.companyId },
+    orderBy: { name: "asc" },
+  });
+
   const { tab = "general" } = await searchParams;
 
   return (
@@ -87,6 +93,7 @@ export default async function EditOSPage({ params, searchParams }: PageProps) {
       clients={clients as any} 
       availableParts={availableParts} 
       users={users as any}
+      units={units as any}
       defaultTab={tab}
       currentUserRole={session.role}
       currentUserPermissions={session.permissions ? JSON.parse(session.permissions) : []}

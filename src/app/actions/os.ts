@@ -1029,3 +1029,86 @@ export async function deleteServiceOrderAction(osId: string) {
     return { error: "Erro ao excluir Ordem de Serviço: " + error.message };
   }
 }
+
+// 12. Transfer O.S. to another unit
+export async function transferServiceOrderAction(osId: string, targetUnitId: string) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  // Apenas administradores podem transferir O.S.
+  if (session.role !== "SUPER_ADMIN" && session.role !== "COMPANY_ADMIN") {
+    return { error: "Permissão negada. Apenas administradores podem transferir Ordens de Serviço." };
+  }
+
+  try {
+    const os = await prisma.serviceOrder.findUnique({
+      where: { id: osId, companyId: session.companyId },
+    });
+
+    if (!os) return { error: "O.S. não encontrada." };
+
+    // Verificar se a unidade destino pertence à mesma empresa
+    const targetUnit = await prisma.unit.findUnique({
+      where: { id: targetUnitId, companyId: session.companyId },
+    });
+
+    if (!targetUnit) {
+      return { error: "Unidade de destino inválida ou não pertence à mesma empresa." };
+    }
+
+    if (os.unitId === targetUnitId) {
+      return { error: "A O.S. já pertence a esta unidade." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Atualizar a O.S. em si
+      await tx.serviceOrder.update({
+        where: { id: osId },
+        data: { unitId: targetUnitId },
+      });
+
+      // 2. Atualizar as movimentações de estoque associadas a esta O.S.
+      await tx.stockMovement.updateMany({
+        where: {
+          referenceId: osId,
+        },
+        data: {
+          unitId: targetUnitId,
+        },
+      });
+
+      // 3. Atualizar as transações financeiras relacionadas a esta O.S.
+      await tx.financialTransaction.updateMany({
+        where: {
+          companyId: session.companyId!,
+          OR: [
+            { description: { startsWith: `Fecham. O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Taxa Cartão - O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Custo Peças O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Custo Terceirizado O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Custo Acessórios O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Sinal O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Taxa Cartão Sinal - O.S. #${os.osNumber}` } },
+          ],
+        },
+        data: {
+          unitId: targetUnitId,
+          cashRegisterId: null, // Desvincular do caixa da unidade anterior para evitar discrepância
+        },
+      });
+    });
+
+    revalidatePath(`/os/editar/${osId}`);
+    revalidatePath("/os");
+    revalidatePath("/financeiro");
+    revalidatePath("/estoque");
+    revalidatePath("/caixa");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error(error);
+    return { error: "Erro ao transferir Ordem de Serviço: " + error.message };
+  }
+}

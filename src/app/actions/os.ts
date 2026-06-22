@@ -280,6 +280,27 @@ export async function updateServiceOrderCostAction(osId: string, cost: number) {
         where: { unitId: os.unitId, status: "OPEN" },
       });
 
+      // Find the main faturamento or prepayment transaction date/register to copy
+      let targetDate = new Date();
+      let targetRegisterId = register ? register.id : null;
+
+      const baseTx = await prisma.financialTransaction.findFirst({
+        where: {
+          companyId: session.companyId!,
+          unitId: os.unitId,
+          OR: [
+            { description: { startsWith: `Fecham. O.S. #${os.osNumber}` } },
+            { description: { startsWith: `Sinal O.S. #${os.osNumber}` } }
+          ]
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      if (baseTx) {
+        targetDate = baseTx.transactionDate;
+        targetRegisterId = baseTx.cashRegisterId;
+      }
+
       const existingTx = await prisma.financialTransaction.findFirst({
         where: {
           companyId: session.companyId!,
@@ -291,7 +312,11 @@ export async function updateServiceOrderCostAction(osId: string, cost: number) {
         if (cost > 0) {
           await prisma.financialTransaction.update({
             where: { id: existingTx.id },
-            data: { amount: cost },
+            data: { 
+              amount: cost,
+              transactionDate: targetDate,
+              cashRegisterId: targetRegisterId,
+            },
           });
         } else {
           await prisma.financialTransaction.delete({
@@ -307,9 +332,9 @@ export async function updateServiceOrderCostAction(osId: string, cost: number) {
             amount: cost,
             description: `Custo Terceirizado O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Serviços",
-            transactionDate: new Date(),
+            transactionDate: targetDate,
             userId: session.userId,
-            cashRegisterId: register ? register.id : null,
+            cashRegisterId: targetRegisterId,
           },
         });
       }
@@ -465,7 +490,8 @@ export async function finishAndBillServiceOrderAction(
   installments: number = 1,
   discount: number = 0,
   servicePrice?: number,
-  cardServicePrice?: number
+  cardServicePrice?: number,
+  customDate?: string
 ) {
   const session = await getSession();
   if (!session || !session.companyId) {
@@ -481,6 +507,9 @@ export async function finishAndBillServiceOrderAction(
     if (!os) return { error: "O.S. não encontrada." };
     if (os.status === "DELIVERED") return { error: "Esta O.S. já foi entregue e faturada." };
 
+    // Parse custom date if provided, otherwise default to current date
+    const transactionDate = customDate ? new Date(customDate) : new Date();
+
     // Get cardServicePrice & accessoryCost from checklist
     let checklistObj: Record<string, any> = {};
     try {
@@ -488,6 +517,8 @@ export async function finishAndBillServiceOrderAction(
     } catch {
       checklistObj = {};
     }
+
+    checklistObj.billingDate = transactionDate.toISOString();
 
     const accessoryCost = parseFloat(checklistObj.accessoryCost) || 0;
 
@@ -529,7 +560,7 @@ export async function finishAndBillServiceOrderAction(
 
     // Calcula garantia expiração
     const warrantyExpiresAt = os.warrantyPeriod > 0
-      ? new Date(Date.now() + os.warrantyPeriod * 24 * 60 * 60 * 1000)
+      ? new Date(transactionDate.getTime() + os.warrantyPeriod * 24 * 60 * 60 * 1000)
       : null;
 
     await prisma.$transaction(async (tx) => {
@@ -562,7 +593,7 @@ export async function finishAndBillServiceOrderAction(
       }
 
       const shortId = os.id.split("-")[0].toUpperCase();
-      const timeStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const timeStr = transactionDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
       // 2. Criar Transação de Receita do Saldo Restante (Se houver restante)
       if (remainder > 0 && register) {
@@ -587,7 +618,7 @@ export async function finishAndBillServiceOrderAction(
             amount: remainder,
             description: detailDescription,
             category: "Venda de Serviços/Assistência",
-            transactionDate: new Date(),
+            transactionDate: transactionDate,
             userId: session.userId,
             cashRegisterId: register.id,
           },
@@ -604,7 +635,7 @@ export async function finishAndBillServiceOrderAction(
             amount: cardFee,
             description: `Taxa Cartão - O.S. #${os.osNumber} - ${timeStr}`,
             category: "Taxas e Tarifas",
-            transactionDate: new Date(),
+            transactionDate: transactionDate,
             userId: session.userId,
             cashRegisterId: register.id,
           },
@@ -622,7 +653,7 @@ export async function finishAndBillServiceOrderAction(
             amount: totalPartsCost,
             description: `Custo Peças O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Produtos",
-            transactionDate: new Date(),
+            transactionDate: transactionDate,
             userId: session.userId,
             cashRegisterId: register.id,
           },
@@ -639,7 +670,7 @@ export async function finishAndBillServiceOrderAction(
             amount: os.cost,
             description: `Custo Terceirizado O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Serviços",
-            transactionDate: new Date(),
+            transactionDate: transactionDate,
             userId: session.userId,
             cashRegisterId: register.id,
           },
@@ -656,7 +687,7 @@ export async function finishAndBillServiceOrderAction(
             amount: accessoryCost,
             description: `Custo Acessórios O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Produtos",
-            transactionDate: new Date(),
+            transactionDate: transactionDate,
             userId: session.userId,
             cashRegisterId: register.id,
           },
@@ -866,6 +897,7 @@ export async function reopenServiceOrderAction(osId: string) {
 
     // Clean up checklist config
     delete checklistObj.cashServicePrice;
+    delete checklistObj.billingDate;
 
     await prisma.$transaction(async (tx) => {
       // 1. Restaurar o estoque físico

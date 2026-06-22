@@ -289,6 +289,7 @@ export default function OSEditorClient({
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [installments, setInstallments] = useState("1");
   const [cardFee, setCardFee] = useState("0");
+  const [customDate, setCustomDate] = useState("");
 
   const isCardPayment = paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD";
   const activeLaborPrice = os.status === "DELIVERED"
@@ -338,7 +339,8 @@ export default function OSEditorClient({
         parseInt(installments, 10) || 1,
         discountNum,
         parseFloat(techForm.servicePrice) || 0,
-        parseFloat(techForm.cardServicePrice) || 0
+        parseFloat(techForm.cardServicePrice) || 0,
+        customDate || undefined
       );
 
       if (res.error) {
@@ -1193,7 +1195,11 @@ export default function OSEditorClient({
                         <div>Método: <strong>{os.paymentMethod === "CASH" ? "Dinheiro" : os.paymentMethod === "PIX" ? "PIX" : os.paymentMethod === "CREDIT_CARD" ? "Crédito" : "Débito"}</strong></div>
                         <div>Parcelas: <strong>{os.installments}x</strong></div>
                         {os.cardFee > 0 && <div>Taxas Cartão: <strong>R$ {os.cardFee.toFixed(2)}</strong></div>}
-                        <div>Data Faturam: <strong>{new Date(os.updatedAt).toLocaleDateString("pt-BR")}</strong></div>
+                        <div>Data Faturam: <strong>{
+                          initialChecklistObj.billingDate
+                            ? new Date(initialChecklistObj.billingDate).toLocaleDateString("pt-BR")
+                            : new Date(os.updatedAt).toLocaleDateString("pt-BR")
+                        }</strong></div>
                       </div>
                     </div>
                   </div>
@@ -1402,6 +1408,18 @@ export default function OSEditorClient({
                     <span className="text-xs text-emerald-400 font-mono font-bold">R$ {prepaymentNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Custom Date Option */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Data do Faturamento (Retroativo)</label>
+                <input
+                  type="datetime-local"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-medium"
+                />
+                <p className="text-[9px] text-slate-500">Deixe em branco para registrar com a data e hora atual.</p>
               </div>
 
               {/* Payment Method Option */}

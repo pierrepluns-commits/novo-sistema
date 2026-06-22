@@ -181,6 +181,10 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
     const isDelivery = docType === "encerramento";
     const isFull = docType === "completo";
 
+    const billingDateStr = checklistObj.billingDate 
+      ? new Date(checklistObj.billingDate).toLocaleDateString("pt-BR") + ", " + new Date(checklistObj.billingDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+      : null;
+
     // Format date nicely
     const dateStr = new Date(os.createdAt).toLocaleDateString("pt-BR") + ", " + new Date(os.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -188,7 +192,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
       <div className="w-full bg-[#0a0e19] print:bg-white text-slate-200 print:text-black border border-slate-800 print:border-black rounded-2xl print:rounded-none p-4 print:p-2 space-y-3 print:space-y-1 text-xs print:text-[9px] print:leading-none print:h-full print:flex print:flex-col print:justify-between">
         
         {/* Top Header */}
-        <div className="flex justify-between items-center border-b border-slate-850 print:border-black pb-1.5 print:pb-1">
+        <div className="flex justify-between items-center border-b border-slate-855 print:border-black pb-1.5 print:pb-1">
           <div>
             <h1 className="text-lg print:text-sm font-black uppercase text-white print:text-black leading-none">
               {os.company.name}
@@ -217,7 +221,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               <strong>CLIENTE:</strong> <span className="font-semibold text-white print:text-black">{os.client.name.toUpperCase()}</span>
             </div>
             <div>
-              <strong>DATA:</strong> {dateStr}
+              <strong>DATA {isDelivery ? "SAÍDA" : "ENTRADA"}:</strong> {isDelivery && billingDateStr ? billingDateStr : dateStr}
             </div>
           </div>
           <div className="flex justify-between gap-4">
@@ -580,7 +584,11 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
           <div className="space-y-0.5 border-b border-dashed border-black pb-2 text-[10px]">
             <div><strong>O.S. #{String(os.osNumber).padStart(4, "0")}</strong></div>
             <div>{docType === "abertura" ? "Protocolo de Entrada" : docType === "encerramento" ? "Protocolo de Saída" : "Ficha Completa"}</div>
-            <div>Data: {new Date(os.createdAt).toLocaleDateString("pt-BR")} às {new Date(os.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</div>
+            <div>Data {docType === "encerramento" ? "Saída" : "Entrada"}: {
+              docType === "encerramento" && checklistObj.billingDate
+                ? new Date(checklistObj.billingDate).toLocaleDateString("pt-BR") + " às " + new Date(checklistObj.billingDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                : new Date(os.createdAt).toLocaleDateString("pt-BR") + " às " + new Date(os.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+            }</div>
             <div>Técnico: <strong>{technicianName}</strong></div>
           </div>
 

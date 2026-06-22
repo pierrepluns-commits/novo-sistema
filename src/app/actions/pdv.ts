@@ -237,7 +237,7 @@ export async function getRecentSales() {
   return sales;
 }
 
-export async function cancelSale(saleId: string) {
+export async function cancelSale(saleId: string, restoreStock: boolean = true) {
   const session = await getSession();
   if (!session || !session.companyId) {
     throw new Error("Não autorizado");
@@ -264,37 +264,39 @@ export async function cancelSale(saleId: string) {
       data: { status: "CANCELLED" }
     });
 
-    // Restore inventory (Baixa Inteligente)
-    for (const item of sale.items) {
-      const product = await tx.product.findUnique({
-        where: { id: item.productId },
-        include: { kitItems: true }
-      });
+    // Restore inventory (Baixa Inteligente) if requested
+    if (restoreStock) {
+      for (const item of sale.items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          include: { kitItems: true }
+        });
 
-      if (!product) continue;
+        if (!product) continue;
 
-      if (product.isKit && product.kitItems.length > 0) {
-        for (const bundle of product.kitItems) {
-          const qtyToRestore = bundle.quantity * item.quantity;
-          const compStock = await tx.stock.findUnique({
-            where: { productId_unitId: { productId: bundle.componentId, unitId: sale.unitId } }
+        if (product.isKit && product.kitItems.length > 0) {
+          for (const bundle of product.kitItems) {
+            const qtyToRestore = bundle.quantity * item.quantity;
+            const compStock = await tx.stock.findUnique({
+              where: { productId_unitId: { productId: bundle.componentId, unitId: sale.unitId } }
+            });
+            if (compStock) {
+              await tx.stock.update({
+                where: { id: compStock.id },
+                data: { quantity: { increment: qtyToRestore } }
+              });
+            }
+          }
+        } else {
+          const stock = await tx.stock.findUnique({
+            where: { productId_unitId: { productId: item.productId, unitId: sale.unitId } }
           });
-          if (compStock) {
+          if (stock) {
             await tx.stock.update({
-              where: { id: compStock.id },
-              data: { quantity: { increment: qtyToRestore } }
+              where: { id: stock.id },
+              data: { quantity: { increment: item.quantity } }
             });
           }
-        }
-      } else {
-        const stock = await tx.stock.findUnique({
-          where: { productId_unitId: { productId: item.productId, unitId: sale.unitId } }
-        });
-        if (stock) {
-          await tx.stock.update({
-            where: { id: stock.id },
-            data: { quantity: { increment: item.quantity } }
-          });
         }
       }
     }
@@ -309,19 +311,21 @@ export async function cancelSale(saleId: string) {
       }
     });
 
-    // Gerar log de auditoria de estorno
-    for (const item of sale.items) {
-      await tx.stockMovement.create({
-        data: {
-          productId: item.productId,
-          unitId: sale.unitId,
-          userId: session.userId,
-          type: "IN",
-          quantity: item.quantity,
-          reason: "CANCEL",
-          referenceId: sale.id
-        }
-      });
+    // Gerar log de auditoria de estorno no estoque se houve devolução
+    if (restoreStock) {
+      for (const item of sale.items) {
+        await tx.stockMovement.create({
+          data: {
+            productId: item.productId,
+            unitId: sale.unitId,
+            userId: session.userId,
+            type: "IN",
+            quantity: item.quantity,
+            reason: "CANCEL",
+            referenceId: sale.id
+          }
+        });
+      }
     }
 
     return updatedSale;

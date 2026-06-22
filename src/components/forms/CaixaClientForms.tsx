@@ -911,3 +911,104 @@ Anulação automática em caso de fios cortados, conectores oxidados/quebrados, 
     </>
   );
 }
+
+// ==========================================
+// 8. DeleteSaleButton component
+// ==========================================
+interface DeleteSaleButtonProps {
+  sale: {
+    id: string;
+    totalAmount: number;
+  };
+  canDelete?: boolean;
+}
+
+export function DeleteSaleButton({ sale, canDelete }: DeleteSaleButtonProps) {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if (!canDelete) return null;
+
+  const handleCancel = async (restoreStock: boolean) => {
+    setLoading(true);
+    try {
+      const res = await cancelSale(sale.id, restoreStock);
+      if (res && (res as any).error) {
+        toast.error((res as any).error);
+      } else {
+        toast.success(
+          restoreStock 
+            ? "Venda estornada e produtos devolvidos ao estoque!" 
+            : "Venda excluída do caixa com sucesso!"
+        );
+        setIsOpen(false);
+        router.refresh();
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir venda.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-all cursor-pointer flex items-center justify-center"
+        title="Excluir Venda"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative text-left">
+            <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-rose-400" />
+              Excluir Venda #{sale.id.split("-")[0].toUpperCase()}
+            </h3>
+            
+            <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+              Esta ação irá estornar o caixa removendo os lançamentos financeiros da venda (R$ {sale.totalAmount.toFixed(2)}).
+              <br /><br />
+              <strong>Deseja devolver os produtos desta venda para o estoque?</strong>
+            </p>
+
+            <div className="flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleCancel(true)}
+                disabled={loading}
+                className="w-full py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                Sim, Devolver ao Estoque
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handleCancel(false)}
+                disabled={loading}
+                className="w-full py-2.5 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <X className="w-4 h-4" />
+                Não, Apenas Excluir do Caixa
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                disabled={loading}
+                className="w-full py-2.5 text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-350 rounded-lg border border-slate-700 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

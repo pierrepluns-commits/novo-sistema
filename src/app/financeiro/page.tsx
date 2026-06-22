@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { getSelectedUnitId } from "@/app/actions/unit";
 import { deleteTransaction } from "@/app/actions/finance";
-import { EditSaleModal, ReprintReceiptButton } from "@/components/forms/CaixaClientForms";
+import { EditSaleModal, ReprintReceiptButton, DeleteSaleButton } from "@/components/forms/CaixaClientForms";
 import { PieChart } from "@/components/ui/PieChart";
 
 interface PageProps {
@@ -1226,6 +1226,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                                 <div className="flex items-center justify-center gap-1.5">
                                   <EditSaleModal sale={relatedSale as any} canDelete={canDelete} />
                                   <ReprintReceiptButton sale={relatedSale as any} users={allUsers} />
+                                  <DeleteSaleButton sale={relatedSale as any} canDelete={canDelete} />
                                 </div>
                               ) : transaction.category !== "Venda de Produtos" && transaction.category !== "Custo de Produtos" ? (
                                 canDelete ? (

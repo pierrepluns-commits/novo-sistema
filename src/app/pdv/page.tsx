@@ -83,6 +83,16 @@ export default function PDVPage() {
       .catch(err => console.error("Failed to load receipt config", err));
   }, []);
 
+  // Auto-print receipt when modal opens
+  useEffect(() => {
+    if (isReceiptModalOpen && lastSale) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isReceiptModalOpen, lastSale]);
+
   const parsedReceiptConfig = (() => {
     try {
       return JSON.parse(receiptConfig?.receiptConfig || "{}");
@@ -585,8 +595,8 @@ export default function PDVPage() {
 
       {/* Receipt Modal & Print View */}
       {isReceiptModalOpen && lastSale && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-sm rounded-xl shadow-2xl flex flex-col print:shadow-none print:w-[80mm] print:bg-white print:text-black">
+        <div className="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-start p-4 overflow-y-auto print:p-0">
+          <div className="bg-card w-full max-w-sm rounded-xl shadow-2xl flex flex-col my-8 print:my-0 print:shadow-none print:w-[80mm] print:bg-white print:text-black">
             
             {/* Dynamic CSS for Print Bobbin styling */}
             <style dangerouslySetInnerHTML={{ __html: `
@@ -621,7 +631,7 @@ export default function PDVPage() {
                 width: paperWidth === "58mm" ? "240px" : "330px", 
                 padding: margins 
               }}
-              className="bg-white text-black font-mono shadow-inner text-xs" 
+              className="bg-white text-black font-mono shadow-inner text-xs p-6" 
               id="receipt"
             >
               <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
@@ -664,22 +674,22 @@ export default function PDVPage() {
               </div>
 
               <div className="mb-4">
-                <table className="w-full text-xs">
+                <table className="w-full text-[11px] table-fixed">
                   <thead>
                     <tr className="border-b border-dashed border-gray-400">
-                      <th className="text-left py-1">QTD</th>
-                      <th className="text-left py-1">ITEM</th>
-                      <th className="text-right py-1">UN(R$)</th>
-                      <th className="text-right py-1">TOT(R$)</th>
+                      <th className="w-[12%] text-left py-1">QTD</th>
+                      <th className="w-[48%] text-left py-1">ITEM</th>
+                      <th className="w-[20%] text-right py-1">UN</th>
+                      <th className="w-[20%] text-right py-1">TOT</th>
                     </tr>
                   </thead>
                   <tbody>
                     {lastSale.cartItems.map((item: any, idx: number) => (
-                      <tr key={idx}>
-                        <td className="py-1">{item.cartQuantity}</td>
-                        <td className="py-1">{item.name} {item.isFreebie && "(Brinde)"}</td>
-                        <td className="text-right py-1">{item.isFreebie ? "0.00" : item.price.toFixed(2)}</td>
-                        <td className="text-right py-1">{item.isFreebie ? "0.00" : (item.price * item.cartQuantity).toFixed(2)}</td>
+                      <tr key={idx} className="border-b border-gray-100/50">
+                        <td className="py-1 align-top text-left">{item.cartQuantity}</td>
+                        <td className="py-1 align-top text-left break-words">{item.name} {item.isFreebie && "(Brinde)"}</td>
+                        <td className="py-1 align-top text-right">{item.isFreebie ? "0.00" : item.price.toFixed(2)}</td>
+                        <td className="py-1 align-top text-right">{item.isFreebie ? "0.00" : (item.price * item.cartQuantity).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -757,7 +757,7 @@ export function ReprintReceiptButton({ sale, users }: { sale: any, users?: any[]
 
       {isOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-start p-4 overflow-y-auto text-left font-sans print:p-0">
-          <div className="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-xl shadow-2xl flex flex-col my-8 print:my-0 print:shadow-none print:w-[80mm] print:bg-white print:text-black">
+          <div className="bg-[#0f172a] border border-slate-800 w-full max-w-sm rounded-xl shadow-2xl flex flex-col my-8 max-h-[85vh] overflow-hidden print:max-h-none print:my-0 print:shadow-none print:w-auto print:bg-white print:text-black">
             
             {/* Dynamic CSS for Print Bobbin styling */}
             <style dangerouslySetInnerHTML={{ __html: `
@@ -789,10 +789,10 @@ export function ReprintReceiptButton({ sale, users }: { sale: any, users?: any[]
             {/* The printable area */}
             <div 
               style={{ 
-                width: paperWidth === "58mm" ? "240px" : "330px", 
+                width: paperWidth, 
                 padding: margins 
               }}
-              className="bg-white text-black font-mono shadow-inner text-xs p-6" 
+              className="bg-white text-black font-mono shadow-inner text-xs p-6 flex-1 overflow-y-auto print:overflow-visible print:h-auto" 
               id={`reprint-receipt-${sale.id}`}
             >
               <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
@@ -835,13 +835,13 @@ export function ReprintReceiptButton({ sale, users }: { sale: any, users?: any[]
               </div>
 
               <div className="mb-4">
-                <table className="w-full text-[11px] table-fixed">
+                <table className="w-full text-[10px] table-fixed">
                   <thead>
                     <tr className="border-b border-dashed border-gray-400">
-                      <th className="w-[12%] text-left py-1">QTD</th>
-                      <th className="w-[48%] text-left py-1">ITEM</th>
-                      <th className="w-[20%] text-right py-1">UN</th>
-                      <th className="w-[20%] text-right py-1">TOT</th>
+                      <th className="w-[10%] text-left py-1">QTD</th>
+                      <th className="w-[46%] text-left py-1">ITEM</th>
+                      <th className="w-[22%] text-right py-1">UN</th>
+                      <th className="w-[22%] text-right py-1">TOT</th>
                     </tr>
                   </thead>
                   <tbody>

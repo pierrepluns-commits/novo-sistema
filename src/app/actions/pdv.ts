@@ -556,3 +556,75 @@ export async function updateSaleDetails(
   return result;
 }
 
+export async function transferSaleAction(saleId: string, targetUnitId: string) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    throw new Error("Sessão inválida ou expirada.");
+  }
+
+  // Apenas administradores podem transferir vendas
+  if (session.role !== "SUPER_ADMIN" && session.role !== "COMPANY_ADMIN") {
+    throw new Error("Permissão negada. Apenas administradores podem transferir vendas.");
+  }
+
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId, companyId: session.companyId },
+  });
+
+  if (!sale) throw new Error("Venda não encontrada.");
+
+  const targetUnit = await prisma.unit.findUnique({
+    where: { id: targetUnitId, companyId: session.companyId },
+  });
+
+  if (!targetUnit) {
+    throw new Error("Unidade de destino inválida ou não pertence à mesma empresa.");
+  }
+
+  if (sale.unitId === targetUnitId) {
+    throw new Error("A venda já pertence a esta unidade.");
+  }
+
+  const shortId = sale.id.split("-")[0].toUpperCase();
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Atualizar a venda em si
+    const updatedSale = await tx.sale.update({
+      where: { id: saleId },
+      data: { unitId: targetUnitId }
+    });
+
+    // 2. Atualizar as movimentações de estoque associadas a esta venda
+    await tx.stockMovement.updateMany({
+      where: {
+        referenceId: saleId
+      },
+      data: {
+        unitId: targetUnitId
+      }
+    });
+
+    // 3. Atualizar as transações financeiras relacionadas a esta venda (Receita, Taxas, CMV)
+    await tx.financialTransaction.updateMany({
+      where: {
+        companyId: session.companyId!,
+        description: { contains: `#${shortId}` }
+      },
+      data: {
+        unitId: targetUnitId,
+        cashRegisterId: null // Desvincular do caixa da unidade anterior para evitar discrepância no fechamento de gaveta
+      }
+    });
+
+    return updatedSale;
+  });
+
+  revalidatePath("/pdv");
+  revalidatePath("/financeiro");
+  revalidatePath("/caixa");
+  revalidatePath("/estoque");
+
+  return result;
+}
+
+

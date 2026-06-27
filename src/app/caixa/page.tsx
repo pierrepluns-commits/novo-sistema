@@ -36,6 +36,10 @@ export default async function CaixaPage() {
 
   const isAdmin = session.role === "SUPER_ADMIN" || session.role === "COMPANY_ADMIN";
   const register = await getCurrentCashRegister();
+  const companyUnits = await prisma.unit.findMany({
+    where: { companyId: session.companyId! },
+    orderBy: { name: "asc" }
+  });
 
   // Buscar todas as vendas concluídas no turno atual se houver caixa aberto
   const sales = register ? await prisma.sale.findMany({
@@ -223,7 +227,7 @@ export default async function CaixaPage() {
 
                       <div className="pt-2 border-t border-slate-800/60 flex justify-between items-center text-sm">
                         <div className="flex items-center gap-2">
-                          <EditSaleModal sale={sale} />
+                          <EditSaleModal sale={sale} units={companyUnits} currentUserRole={session.role} />
                           {(sale.paymentMethod === "CREDIT_CARD" || sale.paymentMethod === "DEBIT_CARD") && (
                             <span className="text-[10px] text-slate-500 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-800/50">
                               Taxa: R$ {sale.cardFee.toFixed(2)}

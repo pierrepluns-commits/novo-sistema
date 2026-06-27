@@ -131,7 +131,8 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
   const [
     transactions, sales, allUsers, allStocks,
     txsA, salesA, txsB, salesB,
-    serviceOrders, serviceOrdersA, serviceOrdersB
+    serviceOrders, serviceOrdersA, serviceOrdersB,
+    allUnits
   ] = await Promise.all([
     prisma.financialTransaction.findMany({
       where: {
@@ -225,6 +226,10 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
         updatedAt: { gte: startB, lte: endB }
       },
       include: { items: true }
+    }),
+    prisma.unit.findMany({
+      where: { companyId: session.companyId },
+      orderBy: { name: "asc" }
     })
   ]);
 
@@ -1227,7 +1232,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                             <td className="px-6 py-4 text-center">
                               {transaction.category === "Venda de Produtos" && relatedSale ? (
                                 <div className="flex items-center justify-center gap-1.5">
-                                  <EditSaleModal sale={relatedSale as any} canDelete={canDelete} />
+                                  <EditSaleModal sale={relatedSale as any} canDelete={canDelete} units={allUnits} currentUserRole={session.role} />
                                   <ReprintReceiptButton sale={relatedSale as any} users={allUsers} />
                                   <DeleteSaleButton sale={relatedSale as any} canDelete={canDelete} />
                                 </div>

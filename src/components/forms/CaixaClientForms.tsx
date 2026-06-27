@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { addManualCashTransaction, updateOpeningBalance } from "@/app/actions/caixa";
-import { updateSaleFee, updateSaleDetails, cancelSale } from "@/app/actions/pdv";
+import { updateSaleFee, updateSaleDetails, cancelSale, transferSaleAction } from "@/app/actions/pdv";
 import toast from "react-hot-toast";
-import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator, Printer, Trash2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Edit2, Check, X, Plus, Minus, Calculator, Printer, Trash2, ArrowRightLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // ==========================================
@@ -97,6 +97,7 @@ export function InlineCardFeeEditor({ saleId, initialFee }: FeeEditorProps) {
 interface EditSaleModalProps {
   sale: {
     id: string;
+    unitId?: string;
     paymentMethod: string;
     cardFee: number;
     totalAmount: number;
@@ -104,11 +105,15 @@ interface EditSaleModalProps {
     items: Array<{ product?: { name: string } | null }>;
   };
   canDelete?: boolean;
+  units?: Array<{ id: string; name: string }>;
+  currentUserRole?: string;
 }
 
-export function EditSaleModal({ sale, canDelete }: EditSaleModalProps) {
+export function EditSaleModal({ sale, canDelete, units, currentUserRole }: EditSaleModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [targetUnitId, setTargetUnitId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(sale.paymentMethod);
   const [cardFee, setCardFee] = useState<string>(sale.cardFee.toFixed(2));
   const [customDate, setCustomDate] = useState<string>("");
@@ -168,6 +173,31 @@ export function EditSaleModal({ sale, canDelete }: EditSaleModalProps) {
       }
     } catch (e: any) {
       toast.error(e.message || "Erro ao estornar venda.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetUnitId) {
+      toast.error("Por favor, selecione uma unidade de destino.");
+      return;
+    }
+    const selectedUnitName = units?.find((u: any) => u.id === targetUnitId)?.name || "outra unidade";
+    if (!confirm(`Tem certeza que deseja transferir esta venda para a unidade ${selectedUnitName}? Todos os custos, movimentações de estoque e lançamentos financeiros passarão a ser contabilizados nesta nova unidade.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await transferSaleAction(sale.id, targetUnitId);
+      toast.success("Venda transferida com sucesso!");
+      setTransferModalOpen(false);
+      setIsOpen(false);
+      router.refresh();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao transferir venda.");
     } finally {
       setLoading(false);
     }
@@ -264,20 +294,32 @@ export function EditSaleModal({ sale, canDelete }: EditSaleModalProps) {
               )}
 
               <div className="flex justify-between items-center pt-4 border-t border-slate-800/80">
-                {canDelete ? (
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={loading}
-                    className="px-3 py-2 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                    title="Estornar Venda"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Estornar</span>
-                  </button>
-                ) : (
-                  <div />
-                )}
+                <div className="flex gap-2">
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={loading}
+                      className="px-3 py-2 text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Estornar Venda"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Estornar</span>
+                    </button>
+                  )}
+                  {(currentUserRole === "SUPER_ADMIN" || currentUserRole === "COMPANY_ADMIN" || (units && units.length > 0)) && (
+                    <button
+                      type="button"
+                      onClick={() => setTransferModalOpen(true)}
+                      disabled={loading}
+                      className="px-3 py-2 text-xs font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Transferir Unidade"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>Transferir</span>
+                    </button>
+                  )}
+                </div>
 
                 <div className="flex gap-2">
                   <button
@@ -296,6 +338,65 @@ export function EditSaleModal({ sale, canDelete }: EditSaleModalProps) {
                     {loading ? "Salvando..." : "Salvar Alterações"}
                   </Button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {transferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200 text-left">
+            <button
+              onClick={() => setTransferModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-cyan-400" />
+              Transferir Venda
+            </h3>
+            
+            <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+              Esta ação moverá esta venda (<strong className="text-white">Venda #{sale.id.split("-")[0].toUpperCase()}</strong>) para a unidade selecionada.
+              <br /><br />
+              <strong className="text-amber-400">Importante:</strong> Todos os custos, movimentações de estoque e faturamento passarão a ser contabilizados na nova unidade.
+            </p>
+
+            <form onSubmit={handleTransfer} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Unidade de Destino</label>
+                <select
+                  value={targetUnitId}
+                  onChange={(e) => setTargetUnitId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 font-bold"
+                  required
+                >
+                  <option value="">Selecione a unidade...</option>
+                  {units?.filter((u: any) => u.id !== sale.unitId).map((u: any) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setTransferModalOpen(false)}
+                  disabled={loading}
+                  className="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-white rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg cursor-pointer"
+                >
+                  {loading ? "Transferindo..." : "Confirmar Transferência"}
+                </button>
               </div>
             </form>
           </div>

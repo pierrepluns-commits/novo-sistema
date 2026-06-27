@@ -364,21 +364,17 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
       {/* Dynamic CSS styles for print formatting */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          body {
+          html, body {
             background-color: white !important;
             color: black !important;
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .print-hidden {
             display: none !important;
-          }
-          .print-container {
-            border: none !important;
-            box-shadow: none !important;
-            background: white !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            max-width: 100% !important;
-            width: 100% !important;
           }
           .print-border-black {
             border-color: black !important;
@@ -386,9 +382,46 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
           .print-text-black {
             color: black !important;
           }
-          @page {
-            margin: 5mm !important;
-          }
+          
+          ${printFormat === "thermal" ? `
+            /* Specific styles for continuous 80mm thermal receipt printing */
+            @page {
+              size: 80mm auto; /* Width 80mm, height auto-grow */
+              margin: 0 !important;
+            }
+            body {
+              width: 80mm !important;
+              max-width: 80mm !important;
+            }
+            .print-container {
+              border: none !important;
+              box-shadow: none !important;
+              background: white !important;
+              padding: 4mm !important;
+              margin: 0 !important;
+              width: 80mm !important;
+              max-width: 80mm !important;
+              box-sizing: border-box !important;
+              height: auto !important;
+              min-height: auto !important;
+              overflow: visible !important;
+            }
+          ` : `
+            /* Specific styles for A4 sheet printing */
+            @page {
+              size: A4;
+              margin: 5mm !important;
+            }
+            .print-container {
+              border: none !important;
+              box-shadow: none !important;
+              background: white !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              max-width: 100% !important;
+              width: 100% !important;
+            }
+          `}
         }
       `}} />
 

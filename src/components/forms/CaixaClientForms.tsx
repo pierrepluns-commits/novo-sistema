@@ -762,6 +762,15 @@ export function ReprintReceiptButton({ sale, users }: { sale: any, users?: any[]
             {/* Dynamic CSS for Print Bobbin styling */}
             <style dangerouslySetInnerHTML={{ __html: `
               @media print {
+                html, body {
+                  background-color: white !important;
+                  color: black !important;
+                  height: auto !important;
+                  min-height: auto !important;
+                  overflow: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
                 body * {
                   visibility: hidden !important;
                 }
@@ -781,6 +790,7 @@ export function ReprintReceiptButton({ sale, users }: { sale: any, users?: any[]
                   color: black !important;
                 }
                 @page {
+                  size: ${paperWidth} auto;
                   margin: 0;
                 }
               }

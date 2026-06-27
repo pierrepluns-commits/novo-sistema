@@ -601,6 +601,15 @@ export default function PDVPage() {
             {/* Dynamic CSS for Print Bobbin styling */}
             <style dangerouslySetInnerHTML={{ __html: `
               @media print {
+                html, body {
+                  background-color: white !important;
+                  color: black !important;
+                  height: auto !important;
+                  min-height: auto !important;
+                  overflow: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
                 body * {
                   visibility: hidden !important;
                 }
@@ -620,6 +629,7 @@ export default function PDVPage() {
                   color: black !important;
                 }
                 @page {
+                  size: ${paperWidth} auto;
                   margin: 0;
                 }
               }

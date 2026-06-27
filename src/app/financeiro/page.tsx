@@ -199,6 +199,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     prisma.serviceOrder.findMany({
       where: {
         ...baseWhere,
+        status: "DELIVERED",
         updatedAt: { gte: start, lte: end }
       },
       include: {
@@ -211,6 +212,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     prisma.serviceOrder.findMany({
       where: {
         ...baseWhere,
+        status: "DELIVERED",
         updatedAt: { gte: startA, lte: endA }
       },
       include: { items: true }
@@ -219,6 +221,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     prisma.serviceOrder.findMany({
       where: {
         ...baseWhere,
+        status: "DELIVERED",
         updatedAt: { gte: startB, lte: endB }
       },
       include: { items: true }
@@ -672,7 +675,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
   }> = {};
 
   for (const os of serviceOrders) {
-    if (os.status !== "DELIVERED" && os.status !== "COMPLETED") continue;
+    if (os.status !== "DELIVERED") continue;
 
     let checklistObj: Record<string, any> = {};
     try {

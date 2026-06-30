@@ -1041,18 +1041,18 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
             {/* Linha 1: Tipo & Funcionário */}
             <div className="flex flex-wrap gap-4 items-center justify-between w-full">
               <div className="flex flex-wrap gap-4 items-center w-full lg:w-auto">
-                <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <div className="flex flex-col gap-1 w-full sm:w-auto text-center sm:text-left">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fluxo Financeiro</span>
-                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap max-w-full">
+                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap max-w-full justify-center mx-auto sm:mx-0">
                     <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=all`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${typeFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}>Todos</Link>
                     <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=income`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${typeFilter === "income" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"}`}>Entradas</Link>
                     <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=expense`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${typeFilter === "expense" ? "bg-rose-500/20 text-rose-400" : "text-slate-400 hover:text-white"}`}>Saídas</Link>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <div className="flex flex-col gap-1 w-full sm:w-auto text-center sm:text-left">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Vendedor / Responsável</span>
-                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full">
+                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full justify-center mx-auto sm:mx-0">
                     <Link 
                       href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&type=${typeFilter}&payment=${paymentFilter}&category=${categoryFilter}&sellerId=`}
                       className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${!sellerId ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
@@ -1079,9 +1079,9 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
 
             {/* Linha 2: Meio de Pagamento & Categorias */}
             <div className="flex flex-wrap gap-4 items-center pt-2 border-t border-slate-800/80 w-full">
-              <div className="flex flex-col gap-1 w-full lg:w-auto">
+              <div className="flex flex-col gap-1 w-full lg:w-auto text-center sm:text-left">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Meio de Pagamento</span>
-                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full">
+                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full justify-center mx-auto sm:mx-0">
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&category=${categoryFilter}&payment=all`}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${paymentFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
@@ -1115,9 +1115,9 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1 w-full lg:w-auto">
+              <div className="flex flex-col gap-1 w-full lg:w-auto text-center sm:text-left">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Filtrar Categoria</span>
-                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full">
+                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full justify-center mx-auto sm:mx-0">
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&payment=${paymentFilter}&category=all`}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${categoryFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}

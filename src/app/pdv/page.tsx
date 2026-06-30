@@ -47,6 +47,7 @@ export default function PDVPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [recentSales, setRecentSales] = useState<SaleType[]>([]);
   const [lastSale, setLastSale] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
@@ -236,7 +237,7 @@ export default function PDVPage() {
 
   return (
     <>
-      <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-8rem)] print:hidden">
+      <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-8rem)] pb-16 lg:pb-0 print:hidden">
         {/* Left side: Products List */}
         <div className="flex-1 flex flex-col space-y-6">
           <div className="flex justify-between items-center flex-wrap gap-4 bg-card p-5 rounded-2xl border border-border shadow-md">
@@ -251,30 +252,33 @@ export default function PDVPage() {
                 <p className="text-[10px] font-mono text-gray-400 tracking-[0.3em] uppercase mt-1">Terminal de Caixa Rápido</p>
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <a href="/estoque/novo">
+            {/* Scrollable button bar on mobile */}
+            <div className="flex overflow-x-auto scrollbar-none flex-nowrap lg:flex-wrap gap-2 w-full lg:w-auto -mx-2 px-2 lg:mx-0 lg:px-0 justify-center">
+              <a href="/estoque/novo" className="flex-shrink-0">
                 <Button 
                   icon={PackagePlus} 
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white border-none shadow-lg shadow-emerald-500/30 font-bold px-6 py-2 tracking-wide"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white border-none shadow-lg shadow-emerald-500/30 font-bold px-4 py-2 text-xs whitespace-nowrap"
                 >
                   Adicionar Produto
                 </Button>
               </a>
-              <a href="/caixa">
+              <a href="/caixa" className="flex-shrink-0">
                 <Button 
                   icon={Lock} 
-                  className="bg-rose-600 hover:bg-rose-500 text-white border-none shadow-lg shadow-rose-500/30 font-bold px-6 py-2 tracking-wide"
+                  className="bg-rose-600 hover:bg-rose-500 text-white border-none shadow-lg shadow-rose-500/30 font-bold px-4 py-2 text-xs whitespace-nowrap"
                 >
                   Fechar Caixa
                 </Button>
               </a>
-              <Button 
-                icon={History} 
-                onClick={loadRecentSales}
-                className="bg-violet-600 hover:bg-violet-500 text-white border-none shadow-[0_0_15px_rgba(139,92,246,0.5)] font-bold px-6 py-2 tracking-wide transition-all duration-300"
-              >
-                Histórico de Vendas
-              </Button>
+              <div className="flex-shrink-0">
+                <Button 
+                  icon={History} 
+                  onClick={loadRecentSales}
+                  className="bg-violet-600 hover:bg-violet-500 text-white border-none shadow-[0_0_15px_rgba(139,92,246,0.5)] font-bold px-4 py-2 text-xs whitespace-nowrap transition-all duration-300"
+                >
+                  Histórico de Vendas
+                </Button>
+              </div>
             </div>
           </div>
           
@@ -322,8 +326,8 @@ export default function PDVPage() {
           </div>
         </div>
 
-        {/* Right side: Cart */}
-        <div className="w-full lg:w-[450px] flex flex-col bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
+        {/* Right side: Cart (Desktop only) */}
+        <div className="hidden lg:flex w-full lg:w-[450px] flex-col bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
           <div className="p-4 border-b border-border bg-secondary/5 flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
             <h2 className="font-semibold text-foreground">Carrinho</h2>
@@ -407,6 +411,139 @@ export default function PDVPage() {
           </div>
         </div>
       </div>
+
+      {/* Sticky Bottom Cart Bar for Mobile */}
+      {cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0f172a] border-t border-slate-800 p-4 z-40 flex items-center justify-between shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="flex items-center gap-2">
+            <div className="relative bg-cyan-500/10 p-2.5 rounded-xl border border-cyan-500/20 text-cyan-400">
+              <ShoppingCart className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                {cart.reduce((sum, item) => sum + item.cartQuantity, 0)}
+              </span>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">Total do Carrinho</p>
+              <p className="text-base font-black text-emerald-400">R$ {total.toFixed(2)}</p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => setIsCartOpen(true)}
+            className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-2 px-5 rounded-xl text-xs shadow-lg shadow-cyan-500/20"
+          >
+            Ver Carrinho
+          </Button>
+        </div>
+      )}
+
+      {/* Mobile Cart Drawer/Modal */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden animate-in fade-in duration-200">
+          <div className="fixed inset-y-0 right-0 w-full max-w-md bg-[#0f172a] border-l border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="p-4 border-b border-slate-800 bg-[#0a0f1c] flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-cyan-400" />
+                <h2 className="font-bold text-white text-sm">Carrinho ({cart.reduce((sum, item) => sum + item.cartQuantity, 0)} itens)</h2>
+              </div>
+              <button 
+                onClick={() => setIsCartOpen(false)} 
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 space-y-4">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-2">
+                  <ShoppingCart className="w-10 h-10 opacity-20" />
+                  <p>O carrinho está vazio</p>
+                </div>
+              ) : (
+                cart.map(item => (
+                  <div key={item.id} className="flex flex-col border-b border-slate-800/60 pb-3 group">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold text-white leading-relaxed">{item.name}</h4>
+                        <div className="text-xs text-slate-400 flex items-center gap-2 mt-1">
+                          {item.isFreebie ? (
+                            <span className="text-green-400 font-extrabold">BRINDE</span>
+                          ) : (
+                            <span className="font-semibold">R$ {item.price.toFixed(2)} un</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 select-none flex-shrink-0">
+                        <button 
+                          type="button"
+                          onClick={() => updateCartQuantity(item.id, item.cartQuantity - 1)}
+                          className="p-1 rounded bg-[#0a0f1c] border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-white transition-all cursor-pointer w-7 h-7 flex items-center justify-center font-bold"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <input 
+                          type="number"
+                          min="1"
+                          value={item.cartQuantity}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 1;
+                            updateCartQuantity(item.id, val);
+                          }}
+                          className="w-10 text-center bg-[#0a0f1c] border border-slate-800 rounded-lg text-white text-xs py-1 px-0.5 focus:ring-1 focus:ring-primary focus:outline-none font-bold"
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => updateCartQuantity(item.id, item.cartQuantity + 1)}
+                          className="p-1 rounded bg-[#0a0f1c] border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-white transition-all cursor-pointer w-7 h-7 flex items-center justify-center font-bold"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                        <span className="text-sm font-black text-white min-w-[70px] text-right ml-1">
+                          R$ {item.isFreebie ? "0.00" : (item.price * item.cartQuantity).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3 mt-2">
+                      <button onClick={() => toggleFreebie(item.id)} className={`text-xs flex items-center gap-1 ${item.isFreebie ? 'text-green-400 font-bold' : 'text-slate-400 hover:text-green-400'}`}>
+                        <Gift className="w-3.5 h-3.5" /> {item.isFreebie ? 'Brinde' : 'Marcar Brinde'}
+                      </button>
+                      <button onClick={() => removeFromCart(item.id)} className="text-xs flex items-center gap-1 text-rose-400 hover:text-rose-500">
+                        <Trash className="w-3.5 h-3.5" /> Remover
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-[#0a0f1c] space-y-4">
+              <div className="flex justify-between items-center text-xl font-bold">
+                <span className="text-white">Total:</span>
+                <span className="text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.3)]">R$ {total.toFixed(2)}</span>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsCartOpen(false)}
+                  className="flex-1 py-3 text-sm font-semibold bg-slate-800 hover:bg-slate-750 text-white rounded-xl border border-slate-700 transition-colors"
+                >
+                  Voltar às Peças
+                </button>
+                <button 
+                  onClick={() => {
+                    setIsCartOpen(false);
+                    handleOpenPayment();
+                  }} 
+                  disabled={cart.length === 0}
+                  className="flex-1 py-3 text-sm font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+                >
+                  Ir para Pagamento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {isPaymentModalOpen && (

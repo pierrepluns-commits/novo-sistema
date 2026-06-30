@@ -740,34 +740,35 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
         <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-md space-y-4 animate-in fade-in duration-200">
           <form method="GET" action="/financeiro" className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             <input type="hidden" name="tab" value={activeTab} />
-            <input type="hidden" name="area" value={area} />
             
             {/* Filtro de Período */}
-            <div className="flex flex-wrap gap-2.5 items-center w-full lg:w-auto">
-              <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 mr-2">
+            <div className="flex flex-col lg:flex-row gap-2 w-full lg:w-auto">
+              <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 mr-2 flex-shrink-0">
                 <Calendar className="w-3.5 h-3.5 text-cyan-400" />
                 Período:
               </span>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=hoje&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "hoje" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "hoje" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
-                Hoje
-              </Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=7dias&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "7dias" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "7dias" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
-                Últimos 7 dias
-              </Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=mes&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "mes" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "mes" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
-                Mês Atual
-              </Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=ano&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "ano" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "ano" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
-                Ano Atual
-              </Link>
-              <Link href={`/financeiro?tab=${activeTab}&periodo=personalizado&startDate=${startDateStr}&endDate=${endDateStr}&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${periodo === "personalizado" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${periodo === "personalizado" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
-                Personalizado
-              </Link>
+              <div className="flex overflow-x-auto scrollbar-none flex-nowrap lg:flex-wrap gap-2.5 items-center w-full lg:w-auto -mx-4 px-4 lg:mx-0 lg:px-0">
+                <Link href={`/financeiro?tab=${activeTab}&periodo=hoje&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${periodo === "hoje" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${periodo === "hoje" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                  Hoje
+                </Link>
+                <Link href={`/financeiro?tab=${activeTab}&periodo=7dias&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${periodo === "7dias" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${periodo === "7dias" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                  Últimos 7 dias
+                </Link>
+                <Link href={`/financeiro?tab=${activeTab}&periodo=mes&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${periodo === "mes" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${periodo === "mes" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                  Mês Atual
+                </Link>
+                <Link href={`/financeiro?tab=${activeTab}&periodo=ano&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${periodo === "ano" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${periodo === "ano" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                  Ano Atual
+                </Link>
+                <Link href={`/financeiro?tab=${activeTab}&periodo=personalizado&startDate=${startDateStr}&endDate=${endDateStr}&area=${area}`} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${periodo === "personalizado" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-850"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${periodo === "personalizado" ? "bg-cyan-400 animate-pulse scale-125" : "bg-slate-600"}`}></span>
+                  Personalizado
+                </Link>
+              </div>
             </div>
 
             {periodo === "personalizado" && (
@@ -793,36 +794,36 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
           </form>
 
           {/* Filtro de Área de Visualização */}
-          <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-slate-800/80">
-            <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 mr-2">
+          <div className="flex flex-col lg:flex-row gap-2 lg:items-center pt-3 border-t border-slate-800/80">
+            <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 mr-2 flex-shrink-0">
               <Filter className="w-3.5 h-3.5 text-cyan-400" />
               Filtrar por Área:
             </span>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex overflow-x-auto scrollbar-none flex-nowrap lg:flex-wrap gap-2 w-full lg:w-auto -mx-4 px-4 lg:mx-0 lg:px-0">
               <Link 
                 href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=all`} 
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "all" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${area === "all" ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${area === "all" ? "bg-cyan-400" : "bg-slate-600"}`}></span>
                 Tudo Consolidado (Geral)
               </Link>
               <Link 
                 href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=pdv`} 
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "pdv" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${area === "pdv" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${area === "pdv" ? "bg-emerald-400" : "bg-slate-600"}`}></span>
                 Apenas Vendas PDV
               </Link>
               <Link 
                 href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=os`} 
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "os" ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${area === "os" ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${area === "os" ? "bg-amber-400" : "bg-slate-600"}`}></span>
                 Apenas Ordens de Serviço
               </Link>
               <Link 
                 href={`/financeiro?tab=${activeTab}&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&area=aparelhos`} 
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${area === "aparelhos" ? "bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-[0_0_10px_rgba(14,165,233,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border flex-shrink-0 whitespace-nowrap ${area === "aparelhos" ? "bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-[0_0_10px_rgba(14,165,233,0.2)]" : "bg-slate-900/60 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:border-slate-700"}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${area === "aparelhos" ? "bg-sky-400" : "bg-slate-600"}`}></span>
                 Apenas Venda de Celulares
@@ -835,7 +836,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       {/* ==========================================
           BARRA DE NAVEGAÇÃO DE ABAS (TABS)
           ========================================== */}
-      <div className="flex flex-wrap gap-3 border-b border-slate-800/80 pb-4">
+      <div className="flex overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-3 border-b border-slate-800/80 pb-4 -mx-4 px-4 md:mx-0 md:px-0">
         {tabsList.map((tab) => {
           const TabIcon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -849,7 +850,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
             <Link
               key={tab.id}
               href={targetHref}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-3 border group ${
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-3 border group flex-shrink-0 whitespace-nowrap ${
                 isActive ? tab.activeStyle : tab.hoverStyle
               }`}
             >
@@ -1038,23 +1039,23 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
               </div>
             </form>
             {/* Linha 1: Tipo & Funcionário */}
-            <div className="flex flex-wrap gap-4 items-center justify-between">
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap gap-4 items-center justify-between w-full">
+              <div className="flex flex-wrap gap-4 items-center w-full lg:w-auto">
+                <div className="flex flex-col gap-1 w-full sm:w-auto">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fluxo Financeiro</span>
-                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg">
-                    <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=all`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${typeFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}>Todos</Link>
-                    <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=income`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${typeFilter === "income" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"}`}>Entradas</Link>
-                    <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=expense`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${typeFilter === "expense" ? "bg-rose-500/20 text-rose-400" : "text-slate-400 hover:text-white"}`}>Saídas</Link>
+                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap max-w-full">
+                    <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=all`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${typeFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}>Todos</Link>
+                    <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=income`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${typeFilter === "income" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"}`}>Entradas</Link>
+                    <Link href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&payment=${paymentFilter}&category=${categoryFilter}&type=expense`} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${typeFilter === "expense" ? "bg-rose-500/20 text-rose-400" : "text-slate-400 hover:text-white"}`}>Saídas</Link>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 w-full sm:w-auto">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Vendedor / Responsável</span>
-                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg flex-wrap gap-0.5 max-w-full">
+                  <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full">
                     <Link 
                       href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&type=${typeFilter}&payment=${paymentFilter}&category=${categoryFilter}&sellerId=`}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!sellerId ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${!sellerId ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
                     >
                       Todos
                     </Link>
@@ -1062,7 +1063,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                       <Link 
                         key={u.id}
                         href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&type=${typeFilter}&payment=${paymentFilter}&category=${categoryFilter}&sellerId=${u.id}`}
-                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sellerId === u.id ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${sellerId === u.id ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
                       >
                         {u.name}
                       </Link>
@@ -1071,85 +1072,85 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                 </div>
               </div>
 
-              <Link href="/financeiro/novo" className="self-end">
-                <Button className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-2 rounded-xl shadow-lg shadow-cyan-500/20 text-xs">Novo Lançamento</Button>
+              <Link href="/financeiro/novo" className="self-end w-full sm:w-auto">
+                <Button className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-2 rounded-xl shadow-lg shadow-cyan-500/20 text-xs w-full">Novo Lançamento</Button>
               </Link>
             </div>
 
             {/* Linha 2: Meio de Pagamento & Categorias */}
-            <div className="flex flex-wrap gap-4 items-center pt-2 border-t border-slate-800/80">
-              <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap gap-4 items-center pt-2 border-t border-slate-800/80 w-full">
+              <div className="flex flex-col gap-1 w-full lg:w-auto">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Meio de Pagamento</span>
-                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg flex-wrap gap-0.5">
+                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full">
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&category=${categoryFilter}&payment=all`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${paymentFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${paymentFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
                   >
                     Todos
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&category=${categoryFilter}&payment=CASH`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${paymentFilter === "CASH" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${paymentFilter === "CASH" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Dinheiro
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&category=${categoryFilter}&payment=PIX`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${paymentFilter === "PIX" ? "bg-cyan-500/20 text-cyan-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${paymentFilter === "PIX" ? "bg-cyan-500/20 text-cyan-400" : "text-slate-400 hover:text-white"}`}
                   >
                     PIX
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&category=${categoryFilter}&payment=CREDIT_CARD`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${paymentFilter === "CREDIT_CARD" ? "bg-purple-500/20 text-purple-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${paymentFilter === "CREDIT_CARD" ? "bg-purple-500/20 text-purple-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Crédito
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&category=${categoryFilter}&payment=DEBIT_CARD`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${paymentFilter === "DEBIT_CARD" ? "bg-indigo-500/20 text-indigo-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${paymentFilter === "DEBIT_CARD" ? "bg-indigo-500/20 text-indigo-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Débito
                   </Link>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 w-full lg:w-auto">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Filtrar Categoria</span>
-                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg flex-wrap gap-0.5">
+                <div className="flex bg-[#0a0f1c] p-0.5 border border-slate-700 rounded-lg overflow-x-auto scrollbar-none flex-nowrap md:flex-wrap gap-0.5 max-w-full">
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&payment=${paymentFilter}&category=all`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${categoryFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${categoryFilter === "all" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}
                   >
                     Todas Categorias
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&payment=${paymentFilter}&category=Venda de Produtos`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${categoryFilter === "Venda de Produtos" ? "bg-cyan-500/20 text-cyan-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${categoryFilter === "Venda de Produtos" ? "bg-cyan-500/20 text-cyan-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Vendas
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&payment=${paymentFilter}&category=Custo de Produtos`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${categoryFilter === "Custo de Produtos" ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${categoryFilter === "Custo de Produtos" ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Custo de Mercadoria (CMV)
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&payment=${paymentFilter}&category=Taxas e Tarifas`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${categoryFilter === "Taxas e Tarifas" ? "bg-rose-500/20 text-rose-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${categoryFilter === "Taxas e Tarifas" ? "bg-rose-500/20 text-rose-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Taxas
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&payment=${paymentFilter}&category=Entrada Manual`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${categoryFilter === "Entrada Manual" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${categoryFilter === "Entrada Manual" ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Ajustes Entradas
                   </Link>
                   <Link 
                     href={`/financeiro?tab=extrato&periodo=${periodo}&startDate=${startDateStr}&endDate=${endDateStr}&sellerId=${sellerId}&type=${typeFilter}&payment=${paymentFilter}&category=Saída Manual`}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${categoryFilter === "Saída Manual" ? "bg-orange-500/20 text-orange-400" : "text-slate-400 hover:text-white"}`}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex-shrink-0 whitespace-nowrap ${categoryFilter === "Saída Manual" ? "bg-orange-500/20 text-orange-400" : "text-slate-400 hover:text-white"}`}
                   >
                     Sangrias / Vales / Saídas
                   </Link>
@@ -1158,7 +1159,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+          <div className="hidden md:block bg-[#0f172a] border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#0a0f1c] border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
@@ -1277,6 +1278,121 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile view of Extrato */}
+          <div className="block md:hidden space-y-4">
+            {filteredTransactions.length === 0 ? (
+              <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-8 text-center text-slate-500 text-xs font-semibold">
+                Nenhum lançamento encontrado para os filtros selecionados.
+              </div>
+            ) : (
+              sortedDays.map((day) => {
+                const dayTransactions = groupedTransactions[day];
+                const dayIn = dayTransactions.filter(t => t.type === "INCOME").reduce((acc, t) => acc + t.amount, 0);
+                const dayOut = dayTransactions.filter(t => t.type === "EXPENSE").reduce((acc, t) => acc + t.amount, 0);
+                const dayNet = dayIn - dayOut;
+
+                return (
+                  <div key={day} className="bg-[#0f172a] border border-slate-800 rounded-2xl overflow-hidden shadow-lg space-y-0">
+                    {/* Day Header */}
+                    <div className="bg-[#0a0f1c] px-4 py-3 border-b border-slate-800 flex justify-between items-center">
+                      <span className="font-bold text-cyan-400 text-xs flex items-center gap-1">
+                        📅 {day}
+                      </span>
+                      <span className={`text-xs font-black ${dayNet >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        Saldo: R$ {dayNet.toFixed(2)}
+                      </span>
+                    </div>
+
+                    {/* Day Transactions */}
+                    <div className="divide-y divide-slate-800/50">
+                      {dayTransactions.map((transaction) => {
+                        const match = transaction.description.match(/Venda #([A-Z0-9]+)/i);
+                        const shortId = match ? match[1] : null;
+                        const relatedSale = shortId ? sales.find(s => s.id.split("-")[0].toUpperCase() === shortId) : null;
+                        const timeStr = new Date(transaction.transactionDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                        return (
+                          <div key={transaction.id} className="p-4 space-y-3 hover:bg-slate-800/10 transition-colors">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] text-slate-500 font-bold">{timeStr}</span>
+                                <h4 className="text-xs font-bold text-white leading-relaxed break-words">{transaction.description}</h4>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider flex-shrink-0 ${
+                                transaction.type === "INCOME" 
+                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                  : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                              }`}>
+                                {transaction.type === "INCOME" ? "Receita" : "Despesa"}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2 text-[10px] text-slate-400 border-t border-slate-800/40">
+                              <div className="flex flex-col gap-0.5">
+                                <span>Vendedor: <strong className="text-slate-300">{transaction.user ? transaction.user.name : "Sistema"}</strong></span>
+                                <span>Unidade: <strong className="text-slate-300">{transaction.unit ? transaction.unit.name : "Geral"}</strong></span>
+                              </div>
+                              <div className="text-right flex flex-col items-end">
+                                <span className={`font-black text-xs ${
+                                  transaction.type === "INCOME" ? "text-emerald-400" : "text-rose-400"
+                                }`}>
+                                  {transaction.type === "INCOME" ? "+" : "-"} R$ {transaction.amount.toFixed(2)}
+                                </span>
+                                <span className="text-[8px] text-slate-500 font-bold mt-0.5 bg-[#0a0f1c] border border-slate-800 px-2 py-0.5 rounded-md">
+                                  {transaction.category}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex justify-end gap-1.5 pt-2 border-t border-slate-800/30">
+                              {transaction.category === "Venda de Produtos" && relatedSale ? (
+                                <div className="flex items-center gap-1.5 w-full justify-between">
+                                  <span className="text-[9px] text-slate-500 font-mono">ID: {relatedSale.id.split("-")[0].toUpperCase()}</span>
+                                  <div className="flex gap-1.5">
+                                    <EditSaleModal sale={relatedSale as any} canDelete={canDelete} units={allUnits} currentUserRole={session.role} />
+                                    <ReprintReceiptButton sale={relatedSale as any} users={allUsers} />
+                                    <DeleteSaleButton sale={relatedSale as any} canDelete={canDelete} />
+                                  </div>
+                                </div>
+                              ) : transaction.category !== "Venda de Produtos" && transaction.category !== "Custo de Produtos" ? (
+                                canDelete ? (
+                                  <div className="flex items-center justify-between w-full">
+                                    <span className="text-[9px] text-slate-500 font-mono">ID: {transaction.id.split("-")[0].toUpperCase()}</span>
+                                    <form action={handleDeleteTransaction} className="inline">
+                                      <input type="hidden" name="id" value={transaction.id} />
+                                      <button 
+                                        type="submit" 
+                                        className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded text-[10px] font-bold transition-all cursor-pointer border border-rose-500/20 flex items-center gap-1"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                        Excluir
+                                      </button>
+                                    </form>
+                                  </div>
+                                ) : (
+                                  <span className="text-[9px] text-slate-600 font-bold uppercase">Sem Permissão</span>
+                                )
+                              ) : (
+                                <span className="text-[9px] text-slate-600 font-bold uppercase">Automático</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Day Footer / Subtotals */}
+                    <div className="bg-[#0a0f1c]/30 px-4 py-2 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-500 font-bold">
+                      <span>Totais do dia:</span>
+                      <span>In: +R$ {dayIn.toFixed(2)} | Out: -R$ {dayOut.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* TOTAL DO MÊS / RESUMO DO PERÍODO */}

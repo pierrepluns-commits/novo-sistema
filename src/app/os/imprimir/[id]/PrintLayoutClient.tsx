@@ -189,7 +189,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
     const dateStr = new Date(os.createdAt).toLocaleDateString("pt-BR") + ", " + new Date(os.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
     return (
-      <div className="w-full bg-[#0a0e19] print:bg-white text-slate-200 print:text-black border border-slate-800 print:border-black rounded-2xl print:rounded-none p-4 print:p-2 space-y-3 print:space-y-1 text-xs print:text-[9px] print:leading-none print:h-full print:flex print:flex-col print:justify-between">
+      <div className="w-full bg-[#0a0e19] print:bg-white text-slate-200 print:text-black border border-slate-800 print:border-black rounded-2xl print:rounded-none p-4 print:p-2 space-y-3 print:space-y-1 text-xs print:text-[9px] print:leading-none print:h-auto print:flex print:flex-col print:justify-between">
         
         {/* Top Header */}
         <div className="flex justify-between items-center border-b border-slate-855 print:border-black pb-1.5 print:pb-1">
@@ -386,21 +386,25 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
           ${printFormat === "thermal" ? `
             /* Specific styles for continuous 80mm thermal receipt printing */
             @page {
-              size: 80mm auto; /* Width 80mm, height auto-grow */
+              size: auto;
               margin: 0 !important;
             }
-            body {
-              width: 80mm !important;
-              max-width: 80mm !important;
+            html, body {
+              width: 72mm !important;
+              max-width: 72mm !important;
+              margin: 0 auto !important;
+              padding: 0 !important;
+              background-color: white !important;
+              color: black !important;
             }
             .print-container {
               border: none !important;
               box-shadow: none !important;
               background: white !important;
-              padding: 4mm !important;
-              margin: 0 !important;
-              width: 80mm !important;
-              max-width: 80mm !important;
+              padding: 2mm !important;
+              margin: 0 auto !important;
+              width: 72mm !important;
+              max-width: 72mm !important;
               box-sizing: border-box !important;
               height: auto !important;
               min-height: auto !important;
@@ -420,6 +424,13 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               margin: 0 !important;
               max-width: 100% !important;
               width: 100% !important;
+            }
+            .print-copy-container {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
             }
           `}
         }
@@ -577,9 +588,9 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
             {renderA4Sheet(null)}
           </div>
         ) : (
-          <div className="print-container max-w-4xl mx-auto print:h-[97vh] print:max-h-[97vh] print:flex print:flex-col print:justify-between print:box-border print:gap-1">
+          <div className="print-container max-w-4xl mx-auto print:h-auto print:max-h-none print:overflow-visible print:block print:gap-4">
             {/* Copy 1: VIA EMPRESA */}
-            <div className="print:h-[47vh] print:max-h-[47vh] print:overflow-hidden print:box-border">
+            <div className="print-copy-container print:h-auto print:max-h-none print:overflow-visible print:box-border">
               {renderA4Sheet("VIA EMPRESA")}
             </div>
 
@@ -593,12 +604,12 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               </span>
             </div>
             
-            <div className="hidden print:block border-b border-dashed border-black py-0.5 text-center text-[7px] text-black font-mono leading-none">
+            <div className="hidden print:block border-b border-dashed border-black py-1 text-center text-[7px] text-black font-mono leading-none">
               CORTAR AQUI E ENTREGAR VIA CLIENTE ABAIXO
             </div>
 
             {/* Copy 2: VIA CLIENTE */}
-            <div className="print:h-[47vh] print:max-h-[47vh] print:overflow-hidden print:box-border">
+            <div className="print-copy-container print:h-auto print:max-h-none print:overflow-visible print:box-border print:mt-4">
               {renderA4Sheet("VIA CLIENTE")}
             </div>
           </div>

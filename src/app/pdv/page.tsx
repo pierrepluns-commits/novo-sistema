@@ -732,8 +732,8 @@ export default function PDVPage() {
 
       {/* Receipt Modal & Print View */}
       {isReceiptModalOpen && lastSale && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-start p-4 overflow-y-auto print:p-0">
-          <div className="bg-card w-full max-w-sm rounded-xl shadow-2xl flex flex-col my-8 max-h-[85vh] overflow-hidden print:max-h-none print:my-0 print:shadow-none print:w-auto print:bg-white print:text-black">
+        <div className="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-start p-4 overflow-y-auto print:p-0 print:static print:bg-white print:overflow-visible print:block">
+          <div className="bg-card w-full max-w-sm rounded-xl shadow-2xl flex flex-col my-8 max-h-[85vh] overflow-hidden print:max-h-none print:my-0 print:shadow-none print:w-full print:bg-white print:text-black print:overflow-visible print:block">
             
             {/* Dynamic CSS for Print Bobbin styling */}
             <style dangerouslySetInnerHTML={{ __html: `
@@ -757,16 +757,19 @@ export default function PDVPage() {
                   position: absolute !important;
                   left: 0 !important;
                   top: 0 !important;
-                  width: ${paperWidth} !important;
+                  width: ${(parsedReceiptConfig.paperWidth || "80mm") === "80mm" ? "72mm" : "50mm"} !important;
+                  max-width: ${(parsedReceiptConfig.paperWidth || "80mm") === "80mm" ? "72mm" : "50mm"} !important;
                   padding: ${margins} !important;
                   margin: 0 !important;
                   box-shadow: none !important;
                   border: none !important;
                   background: white !important;
                   color: black !important;
+                  overflow: visible !important;
+                  height: auto !important;
                 }
                 @page {
-                  size: ${paperWidth} auto;
+                  size: auto;
                   margin: 0;
                 }
               }

@@ -740,6 +740,8 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
         <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-md space-y-4 animate-in fade-in duration-200">
           <form method="GET" action="/financeiro" className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             <input type="hidden" name="tab" value={activeTab} />
+            <input type="hidden" name="periodo" value={periodo} />
+            <input type="hidden" name="area" value={area} />
             
             {/* Filtro de Período */}
             <div className="flex flex-col lg:flex-row gap-2 w-full lg:w-auto">

@@ -276,6 +276,27 @@ export async function updateServiceOrderCostAction(osId: string, cost: number) {
 
     // 2. Se a O.S. estiver DELIVERED (Faturada), sincroniza retroativamente com o Livro Caixa
     if (os.status === "DELIVERED") {
+      let checklistObj: Record<string, any> = {};
+      try {
+        checklistObj = JSON.parse(os.checklist || "{}");
+      } catch {
+        checklistObj = {};
+      }
+
+      let commissionUserId = session.userId;
+      const techName = checklistObj.technicianName?.trim();
+      if (techName) {
+        const allCompanyUsers = await prisma.user.findMany({
+          where: { companyId: session.companyId! }
+        });
+        const matchedUser = allCompanyUsers.find(
+          u => u.name.toLowerCase() === techName.toLowerCase()
+        );
+        if (matchedUser) {
+          commissionUserId = matchedUser.id;
+        }
+      }
+
       const register = await prisma.cashRegister.findFirst({
         where: { unitId: os.unitId, status: "OPEN" },
       });
@@ -316,6 +337,7 @@ export async function updateServiceOrderCostAction(osId: string, cost: number) {
               amount: cost,
               transactionDate: targetDate,
               cashRegisterId: targetRegisterId,
+              userId: commissionUserId,
             },
           });
         } else {
@@ -333,7 +355,7 @@ export async function updateServiceOrderCostAction(osId: string, cost: number) {
             description: `Custo Terceirizado O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Serviços",
             transactionDate: targetDate,
-            userId: session.userId,
+            userId: commissionUserId,
             cashRegisterId: targetRegisterId,
           },
         });
@@ -662,6 +684,20 @@ export async function finishAndBillServiceOrderAction(
 
       // 4.1 Registrar custo terceirizado / comissão do técnico se houver
       if (os.cost > 0 && register) {
+        let commissionUserId = session.userId;
+        const techName = checklistObj.technicianName?.trim();
+        if (techName) {
+          const allCompanyUsers = await tx.user.findMany({
+            where: { companyId: session.companyId! }
+          });
+          const matchedUser = allCompanyUsers.find(
+            u => u.name.toLowerCase() === techName.toLowerCase()
+          );
+          if (matchedUser) {
+            commissionUserId = matchedUser.id;
+          }
+        }
+
         await tx.financialTransaction.create({
           data: {
             type: "EXPENSE",
@@ -671,7 +707,7 @@ export async function finishAndBillServiceOrderAction(
             description: `Custo Terceirizado O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel})`,
             category: "Custo de Serviços",
             transactionDate: transactionDate,
-            userId: session.userId,
+            userId: commissionUserId,
             cashRegisterId: register.id,
           },
         });

@@ -250,20 +250,23 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
 
           <div className="border-t border-slate-800/40 print:border-black/10 my-1" />
 
-          {/* Row 3: Checklist (Intake) or Tech Report (Delivery) */}
-          {isIntake ? (
-            <div>
-              <strong>CHECKLIST:</strong> <span className="font-bold text-indigo-400 print:text-black font-mono">{checklistStr.toUpperCase()}</span>
-            </div>
-          ) : (
-            <div>
-              <strong>LAUDO TÉCNICO:</strong> <span className="font-semibold text-white print:text-black">{os.technicalReport ? os.technicalReport.toUpperCase() : "NENHUM LAUDO TÉCNICO"}</span>
-            </div>
-          )}
+          {/* Row 3: Checklist and/or Tech Report */}
+          <div className="border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5 space-y-1">
+            {(isIntake || isFull) && (
+              <div>
+                <strong>CHECKLIST:</strong> <span className="font-bold text-indigo-400 print:text-black font-mono">{checklistStr.toUpperCase()}</span>
+              </div>
+            )}
+            {(isDelivery || isFull) && (
+              <div>
+                <strong>LAUDO TÉCNICO:</strong> <span className="font-semibold text-white print:text-black">{os.technicalReport ? os.technicalReport.toUpperCase() : "NENHUM LAUDO TÉCNICO"}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Section 2: Defect/Obs (Intake) or Parts/Financials (Delivery) */}
-        {isIntake ? (
+        {/* Section 2: Defect/Obs (Intake or Full) */}
+        {(isIntake || isFull) && (
           <div className="grid grid-cols-5 gap-2 text-[10px] print:text-[8px]">
             <div className="col-span-3 border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5">
               <span className="text-slate-500 print:text-black block font-bold text-[9px] print:text-[7.5px] uppercase tracking-wider mb-0.5">Defeito Relatado</span>
@@ -277,7 +280,10 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               </p>
             </div>
           </div>
-        ) : (
+        )}
+
+        {/* Section 2.5: Parts/Financials (Delivery or Full) */}
+        {(isDelivery || isFull) && (
           <div className="grid grid-cols-5 gap-2 text-[10px] print:text-[8px]">
             {/* Parts table */}
             <div className="col-span-3 border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5 space-y-1">
@@ -390,9 +396,9 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               margin: 0 !important;
             }
             html, body {
-              width: 72mm !important;
-              max-width: 72mm !important;
-              margin: 0 auto !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
               padding: 0 !important;
               background-color: white !important;
               color: black !important;
@@ -401,10 +407,10 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               border: none !important;
               box-shadow: none !important;
               background: white !important;
-              padding: 2mm !important;
-              margin: 0 auto !important;
-              width: 72mm !important;
-              max-width: 72mm !important;
+              padding: 3mm !important;
+              margin: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
               box-sizing: border-box !important;
               height: auto !important;
               min-height: auto !important;
@@ -649,7 +655,8 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
             {os.equipmentPassword && <div>Senha: {os.equipmentPassword}</div>}
           </div>
 
-          {docType === "abertura" ? (
+          {/* Defeito Relatado / Checklist (If Abertura or Completo) */}
+          {(docType === "abertura" || docType === "completo") && (
             <>
               <div className="space-y-0.5 border-b border-dashed border-black pb-2 text-[9px]">
                 <div className="font-bold uppercase text-[10px]">Defeito Relatado:</div>
@@ -660,7 +667,10 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
                 <div className="leading-normal">{checklistStr}</div>
               </div>
             </>
-          ) : (
+          )}
+
+          {/* Laudo Técnico / Peças / Resumo Financeiro (If Encerramento or Completo) */}
+          {(docType === "encerramento" || docType === "completo") && (
             <>
               <div className="space-y-0.5 border-b border-dashed border-black pb-2 text-[9px]">
                 <div className="font-bold uppercase text-[10px]">Laudo Técnico:</div>

@@ -165,28 +165,28 @@ export async function deleteClientAction(id: string) {
   }
 }
 
-// 4. Search Clients in Balcão
 export async function searchClientsAction(query: string) {
   const session = await getSession();
   if (!session || !session.companyId) {
     return [];
   }
 
-  if (!query || !query.trim()) return [];
-
-  const cleanQuery = query.toLowerCase().trim();
+  const cleanQuery = query ? query.toLowerCase().trim() : "";
 
   try {
+    const whereClause: any = { companyId: session.companyId };
+    
+    if (cleanQuery) {
+      whereClause.OR = [
+        { name: { contains: cleanQuery } },
+        { document: { contains: cleanQuery } },
+        { phone: { contains: cleanQuery } },
+      ];
+    }
+
     const clients = await prisma.client.findMany({
-      where: {
-        companyId: session.companyId,
-        OR: [
-          { name: { contains: cleanQuery } },
-          { document: { contains: cleanQuery } },
-          { phone: { contains: cleanQuery } },
-        ],
-      },
-      take: 10,
+      where: whereClause,
+      take: 50,
       orderBy: { name: "asc" },
     });
 

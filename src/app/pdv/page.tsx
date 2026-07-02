@@ -746,6 +746,8 @@ export default function PDVPage() {
                   overflow: visible !important;
                   margin: 0 !important;
                   padding: 0 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
                 }
                 body * {
                   visibility: hidden !important;
@@ -757,8 +759,8 @@ export default function PDVPage() {
                   position: absolute !important;
                   left: 0 !important;
                   top: 0 !important;
-                  width: ${(parsedReceiptConfig.paperWidth || "80mm") === "80mm" ? "72mm" : "50mm"} !important;
-                  max-width: ${(parsedReceiptConfig.paperWidth || "80mm") === "80mm" ? "72mm" : "50mm"} !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
                   padding: ${margins} !important;
                   margin: 0 !important;
                   box-shadow: none !important;

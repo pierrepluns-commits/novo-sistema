@@ -342,17 +342,31 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
 
         {/* Section 3: Legal Terms (Extremely compact text) */}
         <div className="border border-slate-800 print:border-black rounded-lg p-2 print:p-1 bg-slate-950/20 print:bg-white space-y-1">
-          <h4 className="text-[9px] print:text-[7px] font-black text-white print:text-black uppercase tracking-wider text-center leading-none">
-            {isIntake ? "Termos de Recebimento e Condições de Serviço" : "Termos de Garantia e Aceite de Retirada"}
-          </h4>
-          <div className="text-[7.5px] print:text-[5.5px] text-slate-400 print:text-black leading-tight text-justify whitespace-pre-line font-medium overflow-hidden">
-            {isIntake ? intakeTerms : deliveryTerms}
-            {isDelivery && os.warrantyTerms && (
-              <span className="font-bold block mt-0.5">
-                CONDIÇÕES ESPECÍFICAS DA GARANTIA: {os.warrantyTerms} (Prazo: {os.warrantyPeriod} dias)
-              </span>
-            )}
-          </div>
+          {(isIntake || isFull) && (
+            <div className="space-y-0.5">
+              <h4 className="text-[9px] print:text-[7px] font-black text-white print:text-black uppercase tracking-wider text-center leading-none">
+                Termos de Recebimento e Condições de Serviço
+              </h4>
+              <div className="text-[7.5px] print:text-[5.5px] text-slate-400 print:text-black leading-tight text-justify whitespace-pre-line font-medium overflow-hidden">
+                {intakeTerms}
+              </div>
+            </div>
+          )}
+          {(isDelivery || isFull) && (
+            <div className="space-y-0.5 pt-1 border-t border-slate-800/20 print:border-black/5">
+              <h4 className="text-[9px] print:text-[7px] font-black text-white print:text-black uppercase tracking-wider text-center leading-none">
+                Termos de Garantia e Aceite de Retirada
+              </h4>
+              <div className="text-[7.5px] print:text-[5.5px] text-slate-400 print:text-black leading-tight text-justify whitespace-pre-line font-medium overflow-hidden">
+                {deliveryTerms}
+                {(isDelivery || isFull) && os.warrantyPeriod > 0 && (
+                  <span className="font-bold block mt-0.5">
+                    GARANTIA: {os.warrantyPeriod} DIAS {os.warrantyExpiresAt ? `(ATÉ ${new Date(os.warrantyExpiresAt).toLocaleDateString("pt-BR")})` : ""} {os.warrantyTerms ? `| CONDIÇÕES: ${os.warrantyTerms}` : ""}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Section 4: Signatures */}
@@ -730,12 +744,28 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
             </>
           )}
 
-          {/* Warranty certificate in bobbin if Saída */}
-          {docType === "encerramento" && os.warrantyPeriod > 0 && (
-            <div className="text-[8px] border-b border-dashed border-black pb-2 leading-normal">
-              <div className="font-bold text-[9px] uppercase">Garantia: {os.warrantyPeriod} Dias</div>
-              {os.warrantyExpiresAt && <div>Validade: {new Date(os.warrantyExpiresAt).toLocaleDateString("pt-BR")}</div>}
-              <div className="text-justify">{deliveryTerms.substring(0, 150)}...</div>
+          {/* Termos de Entrada (Abertura ou Completo) */}
+          {(docType === "abertura" || docType === "completo") && (
+            <div className="text-[7.5px] border-b border-dashed border-black pb-2 leading-normal space-y-1">
+              <div className="font-bold text-[8.5px] uppercase text-center">Termos de Recebimento e Condições de Serviço</div>
+              <div className="text-justify whitespace-pre-line font-medium">{intakeTerms}</div>
+            </div>
+          )}
+
+          {/* Termos de Garantia / Encerramento (Encerramento ou Completo) */}
+          {(docType === "encerramento" || docType === "completo") && (
+            <div className="text-[7.5px] border-b border-dashed border-black pb-2 leading-normal space-y-1">
+              <div className="font-bold text-[8.5px] uppercase text-center">Termos de Garantia e Aceite de Retirada</div>
+              
+              {os.warrantyPeriod > 0 && (
+                <div className="bg-slate-100 p-1 rounded font-bold text-[8px] space-y-0.5 mb-1 text-black">
+                  <div>GARANTIA: {os.warrantyPeriod} DIAS</div>
+                  {os.warrantyExpiresAt && <div>VALIDADE: {new Date(os.warrantyExpiresAt).toLocaleDateString("pt-BR")}</div>}
+                  {os.warrantyTerms && <div>CONDIÇÕES ESPECÍFICAS: {os.warrantyTerms.toUpperCase()}</div>}
+                </div>
+              )}
+
+              <div className="text-justify whitespace-pre-line font-medium">{deliveryTerms}</div>
             </div>
           )}
 

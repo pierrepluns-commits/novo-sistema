@@ -108,6 +108,19 @@ const defaultDeliveryTerms = `1. CERTIFICADO DE GARANTIA: Esta assistência téc
 export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
   const router = useRouter();
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">("a4");
+
+  React.useEffect(() => {
+    const savedFormat = localStorage.getItem("preferred_print_format");
+    if (savedFormat === "a4" || savedFormat === "thermal") {
+      setPrintFormat(savedFormat);
+    }
+  }, []);
+
+  const handleSetFormat = (format: "a4" | "thermal") => {
+    setPrintFormat(format);
+    localStorage.setItem("preferred_print_format", format);
+  };
+
   const [docType, setDocType] = useState<"abertura" | "encerramento" | "completo">(
     os.status === "COMPLETED" || os.status === "DELIVERED" ? "encerramento" : "abertura"
   );
@@ -188,70 +201,67 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
     // Format date nicely
     const dateStr = new Date(os.createdAt).toLocaleDateString("pt-BR") + ", " + new Date(os.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
+    const docTitle = isIntake 
+      ? "ORDEM DE SERVIÇO - ENTRADA" 
+      : isDelivery 
+        ? "ORDEM DE SERVIÇO - SAÍDA" 
+        : "ORDEM DE SERVIÇO - COMPLETO";
+
     return (
       <div className="w-full bg-[#0a0e19] print:bg-white text-slate-200 print:text-black border border-slate-800 print:border-black rounded-2xl print:rounded-none p-4 print:p-2 space-y-3 print:space-y-1 text-xs print:text-[9px] print:leading-none print:h-auto print:flex print:flex-col print:justify-between">
         
-        {/* Top Header */}
-        <div className="flex justify-between items-center border-b border-slate-855 print:border-black pb-1.5 print:pb-1">
-          <div>
-            <h1 className="text-lg print:text-sm font-black uppercase text-white print:text-black leading-none">
-              {os.company.name}
-            </h1>
-            <p className="text-[10px] print:text-[8px] text-slate-400 print:text-black font-extrabold uppercase mt-0.5 leading-none">
-              {isIntake ? "Protocolo de Entrada" : isDelivery ? "Protocolo de Saída" : "Ficha de Assistência"}
-            </p>
+        {/* Header copy type indicator */}
+        {copyType && (
+          <div className="text-right font-black text-indigo-400 print:text-black text-[9px] print:text-[7.5px] border-b border-slate-800/40 print:border-black/10 pb-1 tracking-wider uppercase">
+            {copyType}
           </div>
-          <div className="text-right">
-            <span className="font-mono text-lg print:text-sm font-black text-indigo-400 print:text-black leading-none">
-              O.S. Nº {os.osNumber}
-            </span>
-            {copyType && (
-              <span className="border border-slate-800 print:border-black px-1.5 py-0.5 ml-2 rounded text-[9px] print:text-[7px] font-black uppercase tracking-wider text-slate-300 print:text-black">
-                {copyType}
-              </span>
+        )}
+
+        {/* Section 0: Brand & O.S. Info */}
+        <div className="grid grid-cols-2 gap-4 items-center">
+          <div className="space-y-1">
+            <h1 className="text-sm print:text-xs font-black text-white print:text-black leading-none">{os.company.name.toUpperCase()}</h1>
+            <p className="text-[10px] print:text-[8px] text-slate-400 print:text-black font-semibold leading-tight">{os.unit.address}</p>
+            {os.unit.contact && (
+              <p className="text-[10px] print:text-[8px] text-slate-500 print:text-black font-mono">Contato: {os.unit.contact}</p>
             )}
+          </div>
+          <div className="text-right space-y-1 font-mono">
+            <div className="text-xs print:text-xs font-black text-indigo-400 print:text-black leading-none">{docTitle}</div>
+            <div className="text-xs print:text-[10px] font-bold text-white print:text-black">O.S. Nº {String(os.osNumber).padStart(4, "0")}</div>
+            <div className="text-[9px] print:text-[7.5px] text-slate-500 print:text-black">
+              {isDelivery && billingDateStr ? `Saída: ${billingDateStr}` : `Entrada: ${dateStr}`}
+            </div>
           </div>
         </div>
 
-        {/* Section 1: Client & Device in a single bordered block */}
-        <div className="border border-slate-800 print:border-black rounded-lg p-2.5 print:p-1.5 space-y-1.5 print:space-y-1 text-[11px] print:text-[8px] leading-snug">
-          {/* Row 1: Client & Contact */}
-          <div className="flex justify-between gap-4">
-            <div>
-              <strong>CLIENTE:</strong> <span className="font-semibold text-white print:text-black">{os.client.name.toUpperCase()}</span>
-            </div>
-            <div>
-              <strong>DATA {isDelivery ? "SAÍDA" : "ENTRADA"}:</strong> {isDelivery && billingDateStr ? billingDateStr : dateStr}
-            </div>
-          </div>
-          <div className="flex justify-between gap-4">
-            <div>
-              <strong>CONTATO:</strong> <span className="font-semibold text-white print:text-black">{os.client.phone}</span>
-            </div>
-            <div>
-              <strong>TÉCNICO:</strong> <span className="font-semibold text-white print:text-black">{technicianName.toUpperCase()}</span>
-            </div>
+        <div className="border-t border-slate-800/60 print:border-black/15 my-1" />
+
+        {/* Section 1: Customer & Equipment details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] print:text-[8.5px]">
+          <div className="border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5 space-y-0.5">
+            <span className="text-slate-500 print:text-black block font-bold text-[9px] print:text-[7.5px] uppercase tracking-wider mb-0.5 border-b border-slate-850 print:border-black/10 pb-0.5">Cliente</span>
+            <div className="font-bold text-white print:text-black text-[10.5px] print:text-[8.5px]">{os.client.name.toUpperCase()}</div>
+            <div>Celular: <span className="font-semibold text-white print:text-black">{os.client.phone}</span></div>
+            {os.client.document && <div>CPF/CNPJ: <span className="font-semibold text-white print:text-black">{os.client.document}</span></div>}
           </div>
 
-          <div className="border-t border-slate-800/40 print:border-black/10 my-1" />
-
-          {/* Row 2: Device details */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <strong>MARCA/MODELO:</strong> <span className="font-semibold text-white print:text-black">{os.equipmentBrand.toUpperCase()} {os.equipmentModel.toUpperCase()}</span>
-            </div>
-            <div>
-              <strong>COR:</strong> <span className="font-semibold text-white print:text-black">{(os.equipmentColor || "N/A").toUpperCase()}</span>
-            </div>
-            <div>
-              <strong>IMEI/SERIAL:</strong> <span className="font-mono text-white print:text-black font-semibold">{(os.equipmentSerial || "SEM").toUpperCase()}</span>
-            </div>
+          <div className="border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5 space-y-0.5">
+            <span className="text-slate-500 print:text-black block font-bold text-[9px] print:text-[7.5px] uppercase tracking-wider mb-0.5 border-b border-slate-850 print:border-black/10 pb-0.5">Equipamento</span>
+            <div className="font-bold text-white print:text-black text-[10.5px] print:text-[8.5px]">{os.equipmentType.toUpperCase()}</div>
+            <div>Marca/Modelo: <span className="font-semibold text-white print:text-black">{os.equipmentBrand.toUpperCase()} {os.equipmentModel.toUpperCase()}</span></div>
+            {(os.equipmentColor || os.equipmentSerial) && (
+              <div>
+                {os.equipmentColor ? `Cor: ${os.equipmentColor.toUpperCase()}` : ""}
+                {os.equipmentSerial ? ` | S/N: ${os.equipmentSerial.toUpperCase()}` : ""}
+              </div>
+            )}
+            {os.equipmentPassword && <div>Senha: <span className="font-bold text-emerald-400 print:text-black font-mono">{os.equipmentPassword}</span></div>}
           </div>
+        </div>
 
-          <div className="border-t border-slate-800/40 print:border-black/10 my-1" />
-
-          {/* Row 3: Checklist and/or Tech Report */}
-          <div className="border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5 space-y-1">
+        {/* Row 2.5: Technical and checklist */}
+        <div className="border border-slate-800 print:border-black rounded-lg p-2 print:p-1.5 text-[10px] print:text-[8.5px] space-y-1">
             {(isIntake || isFull) && (
               <div>
                 <strong>CHECKLIST:</strong> <span className="font-bold text-indigo-400 print:text-black font-mono">{checklistStr.toUpperCase()}</span>
@@ -262,7 +272,6 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
                 <strong>LAUDO TÉCNICO:</strong> <span className="font-semibold text-white print:text-black">{os.technicalReport ? os.technicalReport.toUpperCase() : "NENHUM LAUDO TÉCNICO"}</span>
               </div>
             )}
-          </div>
         </div>
 
         {/* Section 2: Defect/Obs (Intake or Full) */}
@@ -489,6 +498,32 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
             </button>
           </div>
 
+          {/* Format Selector A4/Thermal (Integrated inside top bar!) */}
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1.5 rounded-xl text-xs font-bold">
+            <button
+              onClick={() => handleSetFormat("a4")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                printFormat === "a4" 
+                  ? "bg-indigo-600 text-white font-extrabold" 
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Folha A4</span>
+            </button>
+            <button
+              onClick={() => handleSetFormat("thermal")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                printFormat === "thermal" 
+                  ? "bg-indigo-600 text-white font-extrabold" 
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Térmica 80mm</span>
+            </button>
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsEditingTerms(!isEditingTerms)}
@@ -507,34 +542,9 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold px-6 py-2 rounded-xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all text-xs"
             >
               <Printer className="w-4 h-4" />
-              <span>Imprimir Via</span>
+              <span>Imprimir</span>
             </button>
           </div>
-        </div>
-
-        {/* Format Selector A4/Thermal */}
-        <div className="flex items-center gap-4 bg-slate-900/40 border border-slate-800/60 px-4 py-2 rounded-xl text-xs font-semibold self-start">
-          <span className="text-slate-500">Impressora:</span>
-          <button
-            onClick={() => setPrintFormat("a4")}
-            className={`px-2 py-0.5 rounded transition-all ${
-              printFormat === "a4" 
-                ? "bg-indigo-950 text-indigo-400 font-bold border border-indigo-500/20" 
-                : "text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            Folha A4 (Duas Vias)
-          </button>
-          <button
-            onClick={() => setPrintFormat("thermal")}
-            className={`px-2 py-0.5 rounded transition-all ${
-              printFormat === "thermal" 
-                ? "bg-indigo-950 text-indigo-400 font-bold border border-indigo-500/20" 
-                : "text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            Térmica 80mm
-          </button>
         </div>
 
         {/* Terms Editor Panel */}

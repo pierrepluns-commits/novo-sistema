@@ -210,10 +210,23 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
       {/* Optimized Printable Sheet CSS rules */}
       <style jsx global>{`
         @media print {
-          body {
+          html, body {
             background: white !important;
             color: black !important;
-            font-size: 10px !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          /* Override App layout height constraints for printing */
+          .flex.h-screen,
+          div.flex-1.flex.flex-col,
+          main.flex-1 {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: static !important;
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
           }
           aside, header, nav, button, form, .print-hidden {
             display: none !important;

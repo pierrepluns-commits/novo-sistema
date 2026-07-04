@@ -584,6 +584,11 @@ export async function finishAndBillServiceOrderAction(
     const totalAmount = baseLaborPrice - discount;
     const remainder = Math.max(0, totalAmount - os.prepayment);
 
+    // Calculate true parts cost (handling legacy format)
+    const totalPartsCost = os.items.length > 0
+      ? os.items.reduce((sum, item) => sum + (item.quantity * (item.unitCost || 0)), 0)
+      : (os.partsPrice || 0);
+
     // Buscar caixa aberto
     const register = await prisma.cashRegister.findFirst({
       where: { unitId: os.unitId, status: "OPEN" },
@@ -681,7 +686,6 @@ export async function finishAndBillServiceOrderAction(
             paymentMethod === "CREDIT_CARD" ? "Crédito" : "Débito";
 
           // Calculate profit breakdown for description
-          const totalPartsCost = os.partsPrice || 0;
           const outsourcedCost = os.cost || 0;
           const consolidatedCost = totalPartsCost + outsourcedCost + cardFee + accessoryCost;
           const profit = totalAmount - consolidatedCost;
@@ -722,7 +726,6 @@ export async function finishAndBillServiceOrderAction(
       }
 
       // 4. Registrar custo das peças como CMV na O.S. (Gera transparência no lucro total do mês)
-      const totalPartsCost = os.partsPrice || 0;
       if (totalPartsCost > 0 && register) {
         await tx.financialTransaction.create({
           data: {

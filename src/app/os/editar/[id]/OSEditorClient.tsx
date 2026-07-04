@@ -395,7 +395,7 @@ export default function OSEditorClient({
     : Math.max(0, finalTotalAmount - prepaymentNum);
 
   const inventoryPartsCost = os.items.reduce((sum, item) => sum + (item.quantity * (item.unitCost || 0)), 0);
-  const totalPartsCost = (os.partsPrice || 0) + inventoryPartsCost;
+  const totalPartsCost = os.items.length > 0 ? inventoryPartsCost : (os.partsPrice || 0);
   const outsourcedCost = parseFloat(osCost) || 0;
   const accessoryCost = parseFloat(initialChecklistObj.accessoryCost) || 0;
   const consolidatedCost = totalPartsCost + outsourcedCost + accessoryCost + (os.status === "DELIVERED" ? (os.cardFee || 0) : 0);

@@ -46,6 +46,7 @@ function SidebarContent({ role }: SidebarProps) {
       title: "Administração",
       links: [
         { href: "/financeiro", label: "Financeiro", icon: DollarSign, textColor: "text-purple-400", activeBg: "bg-purple-500/10", iconColor: "text-purple-400" },
+        { href: "/financeiro/salarios", label: "Salários", icon: Coins, textColor: "text-purple-400", activeBg: "bg-purple-500/10", iconColor: "text-indigo-400" },
         { href: "/usuarios", label: "Usuários", icon: Users, textColor: "text-purple-400", activeBg: "bg-purple-500/10", iconColor: "text-fuchsia-400" },
         { href: "/configuracao", label: "Configurações", icon: Settings, textColor: "text-slate-400", activeBg: "bg-slate-500/10", iconColor: "text-slate-400" },
       ]

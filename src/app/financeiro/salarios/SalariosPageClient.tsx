@@ -25,7 +25,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
   const [isPending, startTransition] = useTransition();
   const [selectedUserId, setSelectedUserId] = useState("");
   
-  // Dates filters
+  // Date filters
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
@@ -35,9 +35,9 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
   });
 
   // Unit filter selection
-  const [unitFilter, setUnitFilter] = useState<"current" | "all">("current");
+  const [unitFilter, setUnitFilter] = useState<"current" | "all">("all");
 
-  // Daily rate calculator inputs
+  // Daily rate calculations inputs
   const [daysWorked, setDaysWorked] = useState("0");
   const [dailyRateVal, setDailyRateVal] = useState("0");
 
@@ -64,9 +64,35 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
   const dailyRateNum = parseFloat(dailyRateVal) || 0;
   const totalDailyRatePay = daysWorkedNum * dailyRateNum;
 
-  const totalPayrollPay = payrollData 
-    ? (totalDailyRatePay + payrollData.totalOSCommissions + payrollData.totalAccessoryCommissions - payrollData.totalVales)
-    : 0;
+  // --- FILTER OUT ZERO COMMISSIONS AND GROUP BY UNIT ---
+  const filteredOSList = payrollData
+    ? payrollData.osList.filter(os => os.commission > 0)
+    : [];
+
+  const totalOSCommissionsFiltered = filteredOSList.reduce((sum, item) => sum + item.commission, 0);
+
+  // Group O.S. by Unit
+  const mkOSList = filteredOSList.filter(os => os.unitName.toLowerCase().includes("mk"));
+  const zionixOSList = filteredOSList.filter(os => os.unitName.toLowerCase().includes("zionix"));
+  const otherOSList = filteredOSList.filter(os => !os.unitName.toLowerCase().includes("mk") && !os.unitName.toLowerCase().includes("zionix"));
+
+  const totalMKOS = mkOSList.reduce((sum, item) => sum + item.commission, 0);
+  const totalZionixOS = zionixOSList.reduce((sum, item) => sum + item.commission, 0);
+  const totalOtherOS = otherOSList.reduce((sum, item) => sum + item.commission, 0);
+
+  // Group PDV Sales by Unit
+  const salesList = payrollData ? payrollData.salesList : [];
+  const mkSalesList = salesList.filter(sale => sale.unitName.toLowerCase().includes("mk"));
+  const zionixSalesList = salesList.filter(sale => sale.unitName.toLowerCase().includes("zionix"));
+  const otherSalesList = salesList.filter(sale => !sale.unitName.toLowerCase().includes("mk") && !sale.unitName.toLowerCase().includes("zionix"));
+
+  const totalMKSales = mkSalesList.reduce((sum, item) => sum + item.commission, 0);
+  const totalZionixSales = zionixSalesList.reduce((sum, item) => sum + item.commission, 0);
+  const totalOtherSales = otherSalesList.reduce((sum, item) => sum + item.commission, 0);
+
+  const totalVales = payrollData ? payrollData.totalVales : 0;
+
+  const totalPayrollPay = totalDailyRatePay + totalOSCommissionsFiltered + (payrollData?.totalAccessoryCommissions || 0) - totalVales;
 
   const handleCalculate = () => {
     if (!selectedUserId) {
@@ -134,12 +160,13 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Printable Sheet CSS rules */}
+      {/* Optimized Printable Sheet CSS rules */}
       <style jsx global>{`
         @media print {
           body {
             background: white !important;
             color: black !important;
+            font-size: 10px !important;
           }
           aside, header, nav, button, form, .print-hidden {
             display: none !important;
@@ -148,18 +175,35 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 10px !important;
             box-shadow: none !important;
             border: none !important;
           }
           .print-card {
-            border: 1px solid black !important;
+            border: 1px solid #ccc !important;
             background: white !important;
             color: black !important;
             box-shadow: none !important;
+            border-radius: 8px !important;
+            margin-bottom: 12px !important;
           }
           .print-title {
             color: black !important;
+            background-color: #f3f4f6 !important;
+            border-bottom: 1px solid #ccc !important;
+            padding: 6px 12px !important;
+            font-size: 11px !important;
+          }
+          table {
+            width: 100% !important;
+          }
+          th, td {
+            padding: 4px 8px !important;
+            font-size: 9px !important;
+            color: black !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
           }
         }
       `}</style>
@@ -169,7 +213,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
         {payrollData && (
           <Button 
             onClick={handlePrintReport}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/10 active:scale-95 transition-all animate-in fade-in"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/10 active:scale-95 transition-all"
             icon={Printer}
           >
             Imprimir Demonstrativo
@@ -228,7 +272,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
 
             {/* Days worked */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Dias Trabalhados</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Dias Referentes da Quinzena / Trabalhados</label>
               <input
                 type="number"
                 min="0"
@@ -264,8 +308,8 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
                 onChange={(e) => setUnitFilter(e.target.value as any)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
               >
-                <option value="current">Apenas Unidade Selecionada</option>
                 <option value="all">Todas as Unidades (Integrado)</option>
+                <option value="current">Apenas Unidade Selecionada</option>
               </select>
             </div>
           </div>
@@ -367,288 +411,422 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
 
       {/* payroll reports and summaries */}
       {payrollData ? (
-        <div className="space-y-8 print-container">
+        <div className="space-y-6 print-container animate-in fade-in duration-200">
           
           {/* Header to print */}
-          <div className="hidden print:block text-center border-b border-black pb-4 mb-6">
-            <h2 className="text-xl font-bold uppercase">Demonstrativo de Salário e Comissões</h2>
-            <p className="text-xs">
-              Abrangência: {unitFilter === "all" ? "Todas as Unidades da Rede" : "Apenas a Unidade Selecionada"} 
-              | Período: {new Date(startDate + "T12:00:00").toLocaleDateString("pt-BR")} a {new Date(endDate + "T12:00:00").toLocaleDateString("pt-BR")}
-            </p>
-            <p className="text-xs font-bold mt-1">Funcionário: {payrollData.employeeName.toUpperCase()}</p>
+          <div className="hidden print:block text-center border-b border-slate-300 pb-2 mb-4">
+            <h2 className="text-base font-black uppercase tracking-tight">DEMONSTRATIVO DE SALÁRIO E COMISSÕES</h2>
+            <div className="flex justify-between items-center text-[9px] mt-1 font-bold text-slate-700">
+              <span>Colaborador: {payrollData.employeeName.toUpperCase()}</span>
+              <span>Período: {new Date(startDate + "T12:00:00").toLocaleDateString("pt-BR")} a {new Date(endDate + "T12:00:00").toLocaleDateString("pt-BR")}</span>
+              <span>Unidades: {unitFilter === "all" ? "TODAS" : "APENAS ATUAL"}</span>
+            </div>
           </div>
 
           {/* SECTION 1: Payroll Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 print-hidden">
             {/* Daily Rates card */}
-            <div className="bg-[#0c1322] border border-slate-800 p-6 rounded-2xl flex flex-col justify-between shadow">
+            <div className="bg-[#0c1322] border border-slate-800 p-5 rounded-2xl flex flex-col justify-between shadow">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">1. Total de Diárias</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Diárias da Quinzena</span>
                 <span className="text-xs text-slate-500 block mt-1 font-bold">{daysWorkedNum} dias a R$ {dailyRateNum.toFixed(2)}</span>
               </div>
-              <span className="text-2xl font-black text-white font-mono mt-4 block">
+              <span className="text-xl font-black text-white font-mono mt-3 block">
                 R$ {totalDailyRatePay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
             {/* OS Commissions card */}
-            <div className="bg-[#0c1322] border border-slate-800 p-6 rounded-2xl flex flex-col justify-between shadow">
+            <div className="bg-[#0c1322] border border-slate-800 p-5 rounded-2xl flex flex-col justify-between shadow">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">2. Comissões O.S.</span>
-                <span className="text-xs text-slate-500 block mt-1 font-bold">{payrollData.osList.length} serviços finalizados</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Comissões O.S. (Valores &gt; 0)</span>
+                <span className="text-xs text-slate-500 block mt-1 font-bold">{filteredOSList.length} serviços finalizados</span>
               </div>
-              <span className="text-2xl font-black text-white font-mono mt-4 block">
-                R$ {payrollData.totalOSCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              <span className="text-xl font-black text-white font-mono mt-3 block">
+                R$ {totalOSCommissionsFiltered.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
             {/* Accessory Commissions card */}
-            <div className="bg-[#0c1322] border border-slate-800 p-6 rounded-2xl flex flex-col justify-between shadow">
+            <div className="bg-[#0c1322] border border-slate-800 p-5 rounded-2xl flex flex-col justify-between shadow">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">3. Venda de Acessórios</span>
-                <span className="text-xs text-slate-500 block mt-1 font-bold">2% sobre vendas no PDV</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Acessórios (2% PDV)</span>
+                <span className="text-xs text-slate-500 block mt-1 font-bold">Vendas no caixa</span>
               </div>
-              <span className="text-2xl font-black text-white font-mono mt-4 block">
+              <span className="text-xl font-black text-white font-mono mt-3 block">
                 R$ {payrollData.totalAccessoryCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
             {/* Vales Deduzidos card */}
-            <div className="bg-[#0c1322] border border-slate-800 p-6 rounded-2xl flex flex-col justify-between shadow">
+            <div className="bg-[#0c1322] border border-slate-800 p-5 rounded-2xl flex flex-col justify-between shadow">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">4. Vales Deduzidos</span>
-                <span className="text-xs text-rose-500 block mt-1 font-bold">{payrollData.valesList.length} adiantamentos lançados</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Adiantamentos / Vales</span>
+                <span className="text-xs text-rose-500 block mt-1 font-bold">{payrollData.valesList.length} vales deduzidos</span>
               </div>
-              <span className="text-2xl font-black text-rose-400 font-mono mt-4 block">
+              <span className="text-xl font-black text-rose-400 font-mono mt-3 block">
                 - R$ {payrollData.totalVales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
             {/* Consolidated Total Pay */}
-            <div className="bg-indigo-950/20 border border-indigo-500/20 p-6 rounded-2xl flex flex-col justify-between shadow shadow-indigo-500/5">
+            <div className="bg-indigo-950/20 border border-indigo-500/20 p-5 rounded-2xl flex flex-col justify-between shadow shadow-indigo-500/5">
               <div>
                 <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block font-black">Líquido Final a Receber</span>
                 <span className="text-xs text-indigo-300 block mt-1 font-bold">Diárias + Comissões - Vales</span>
               </div>
-              <span className="text-2xl font-black text-indigo-400 font-mono mt-4 block">
+              <span className="text-xl font-black text-indigo-400 font-mono mt-3 block">
                 R$ {totalPayrollPay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
 
-          {/* SECTION 2: List of Completed Service Orders */}
-          <div className="bg-[#090e1a] border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden print-card">
-            <h4 className="px-6 py-4 bg-[#030712] border-b border-slate-800 text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 print-title">
-              <Wrench className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>Demonstrativo de Serviços e Ordens de Serviço (Técnico)</span>
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#030712]/50 border-b border-slate-850 text-slate-400 font-bold uppercase tracking-wider text-[10px] print:text-black">
-                  <tr>
-                    <th className="px-6 py-3.5">Unidade</th>
-                    <th className="px-6 py-3.5">Data Saída</th>
-                    <th className="px-6 py-3.5">Nº O.S.</th>
-                    <th className="px-6 py-3.5">Aparelho / Equipamento</th>
-                    <th className="px-6 py-3.5 text-right">Comissão / Mão de Obra</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/40 divide-dashed print:divide-black">
-                  {payrollData.osList.length === 0 ? (
+          {/* SECTION 2: O.S. Services grouped by Unit (Desconsiderando R$ 0,00) */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2 print-title">
+              <Wrench className="w-4 h-4 text-indigo-400" />
+              <span>Detalhamento de Comissões por Ordem de Serviço</span>
+            </h3>
+
+            {/* A. SERVIÇOS PELA MK */}
+            <div className="bg-[#090e1a] border border-slate-800/80 rounded-xl overflow-hidden print-card">
+              <h4 className="px-5 py-2.5 bg-[#030712] border-b border-slate-800 text-[10px] font-black text-indigo-400 uppercase tracking-wider print-title">
+                Serviços pela MK:
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#030712]/30 border-b border-slate-850 text-slate-500 font-bold uppercase tracking-wider text-[9px] print:text-black">
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-slate-500 italic">
-                        Nenhum serviço de O.S. finalizado pelo funcionário no período selecionado.
-                      </td>
+                      <th className="px-4 py-2">Data</th>
+                      <th className="px-4 py-2">Nº O.S.</th>
+                      <th className="px-4 py-2">Aparelho / Equipamento</th>
+                      <th className="px-4 py-2 text-right">Valor Comissão</th>
                     </tr>
-                  ) : (
-                    payrollData.osList.map((os) => (
-                      <tr key={os.id} className="hover:bg-slate-800/10 text-slate-355 print:text-black font-medium">
-                        <td className="px-6 py-3">
-                          <span className="inline-flex px-2 py-0.5 rounded bg-slate-850 border border-slate-800 text-[10px] font-bold text-slate-300 print:text-black print:border-none print:bg-transparent">
-                            {os.unitName}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3">{os.date}</td>
-                        <td className="px-6 py-3 font-mono font-bold text-white print:text-black">#{String(os.osNumber).padStart(4, "0")}</td>
-                        <td className="px-6 py-3">{os.equipment}</td>
-                        <td className="px-6 py-3 text-right font-mono font-bold text-white print:text-black">
-                          R$ {os.commission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </thead>
+                  <tbody className="divide-y divide-slate-850/60 print:divide-black">
+                    {mkOSList.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-4 text-center text-slate-500 italic">Nenhum serviço faturado na MK Imports.</td>
+                      </tr>
+                    ) : (
+                      mkOSList.map((os) => (
+                        <tr key={os.id} className="hover:bg-slate-800/10 text-slate-300 print:text-black font-medium">
+                          <td className="px-4 py-2">{os.date}</td>
+                          <td className="px-4 py-2 font-mono font-bold text-white print:text-black">#{String(os.osNumber).padStart(4, "0")}</td>
+                          <td className="px-4 py-2">{os.equipment}</td>
+                          <td className="px-4 py-2 text-right font-mono font-bold text-white print:text-black">R$ {os.commission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))
+                    )}
+                    {mkOSList.length > 0 && (
+                      <tr className="bg-[#030712]/40 font-bold text-white print:text-black">
+                        <td colSpan={3} className="px-4 py-2 text-right text-[9px] uppercase text-slate-450 print:text-black">SUBTOTAL MK:</td>
+                        <td className="px-4 py-2 text-right font-mono text-indigo-400 print:text-black font-black">
+                          R$ {totalMKOS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
-                    ))
-                  )}
-                  {payrollData.osList.length > 0 && (
-                    <tr className="bg-[#030712]/30 font-bold text-white print:text-black border-t border-slate-800 print:border-black">
-                      <td colSpan={4} className="px-6 py-3 text-right text-[10px] uppercase text-slate-400 print:text-black">SOMA DAS COMISSÕES:</td>
-                      <td className="px-6 py-3 text-right font-mono text-indigo-400 print:text-black text-sm font-extrabold">
-                        R$ {payrollData.totalOSCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          {/* SECTION 3: List of PDV Accessory Sales (2% Commission) */}
-          <div className="bg-[#090e1a] border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden print-card">
-            <h4 className="px-6 py-4 bg-[#030712] border-b border-slate-800 text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 print-title">
-              <ShoppingCart className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Demonstrativo de Vendas de Acessórios (2% PDV)</span>
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#030712]/50 border-b border-slate-850 text-slate-400 font-bold uppercase tracking-wider text-[10px] print:text-black">
-                  <tr>
-                    <th className="px-6 py-3.5">Unidade</th>
-                    <th className="px-6 py-3.5">Data Venda</th>
-                    <th className="px-6 py-3.5">Produto / Acessório</th>
-                    <th className="px-6 py-3.5 text-center">Quantidade</th>
-                    <th className="px-6 py-3.5 text-right">Preço Unitário</th>
-                    <th className="px-6 py-3.5 text-right">Valor Bruto</th>
-                    <th className="px-6 py-3.5 text-right">Comissão (2%)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/40 divide-dashed print:divide-black">
-                  {payrollData.salesList.length === 0 ? (
+            {/* B. SERVIÇOS PELA ZIONIX */}
+            <div className="bg-[#090e1a] border border-slate-800/80 rounded-xl overflow-hidden print-card">
+              <h4 className="px-5 py-2.5 bg-[#030712] border-b border-slate-800 text-[10px] font-black text-indigo-400 uppercase tracking-wider print-title">
+                Serviços pela Zionix:
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#030712]/30 border-b border-slate-850 text-slate-500 font-bold uppercase tracking-wider text-[9px] print:text-black">
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-slate-500 italic">
-                        Nenhuma venda de acessórios no PDV efetuada pelo funcionário no período.
-                      </td>
+                      <th className="px-4 py-2">Data</th>
+                      <th className="px-4 py-2">Nº O.S.</th>
+                      <th className="px-4 py-2">Aparelho / Equipamento</th>
+                      <th className="px-4 py-2 text-right">Valor Comissão</th>
                     </tr>
-                  ) : (
-                    payrollData.salesList.map((sale) => (
-                      <tr key={sale.id} className="hover:bg-slate-800/10 text-slate-355 print:text-black font-medium">
-                        <td className="px-6 py-3">
-                          <span className="inline-flex px-2 py-0.5 rounded bg-slate-850 border border-slate-800 text-[10px] font-bold text-slate-300 print:text-black print:border-none print:bg-transparent">
-                            {sale.unitName}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3">{sale.date}</td>
-                        <td className="px-6 py-3 font-bold text-white print:text-black">{sale.productName}</td>
-                        <td className="px-6 py-3 text-center">{sale.quantity}</td>
-                        <td className="px-6 py-3 text-right font-mono">R$ {sale.unitPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-3 text-right font-mono">R$ {sale.grossValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-3 text-right font-mono font-bold text-emerald-400 print:text-black">
-                          R$ {sale.commission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </thead>
+                  <tbody className="divide-y divide-slate-850/60 print:divide-black">
+                    {zionixOSList.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-4 text-center text-slate-500 italic">Nenhum serviço faturado na Zionix.</td>
+                      </tr>
+                    ) : (
+                      zionixOSList.map((os) => (
+                        <tr key={os.id} className="hover:bg-slate-800/10 text-slate-300 print:text-black font-medium">
+                          <td className="px-4 py-2">{os.date}</td>
+                          <td className="px-4 py-2 font-mono font-bold text-white print:text-black">#{String(os.osNumber).padStart(4, "0")}</td>
+                          <td className="px-4 py-2">{os.equipment}</td>
+                          <td className="px-4 py-2 text-right font-mono font-bold text-white print:text-black">R$ {os.commission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))
+                    )}
+                    {zionixOSList.length > 0 && (
+                      <tr className="bg-[#030712]/40 font-bold text-white print:text-black">
+                        <td colSpan={3} className="px-4 py-2 text-right text-[9px] uppercase text-slate-455 print:text-black">SUBTOTAL ZIONIX:</td>
+                        <td className="px-4 py-2 text-right font-mono text-indigo-400 print:text-black font-black">
+                          R$ {totalZionixOS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
-                    ))
-                  )}
-                  {payrollData.salesList.length > 0 && (
-                    <tr className="bg-[#030712]/30 font-bold text-white print:text-black border-t border-slate-800 print:border-black">
-                      <td colSpan={6} className="px-6 py-3 text-right text-[10px] uppercase text-slate-400 print:text-black">SOMA DAS COMISSÕES (2%):</td>
-                      <td className="px-6 py-3 text-right font-mono text-emerald-400 print:text-black text-sm font-extrabold">
-                        R$ {payrollData.totalAccessoryCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
+            {/* C. OUTRAS UNIDADES (Caso existam) */}
+            {otherOSList.length > 0 && (
+              <div className="bg-[#090e1a] border border-slate-800/80 rounded-xl overflow-hidden print-card">
+                <h4 className="px-5 py-2.5 bg-[#030712] border-b border-slate-800 text-[10px] font-black text-indigo-400 uppercase tracking-wider print-title">
+                  Outras Unidades:
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#030712]/30 border-b border-slate-850 text-slate-500 font-bold uppercase tracking-wider text-[9px] print:text-black">
+                      <tr>
+                        <th className="px-4 py-2">Unidade</th>
+                        <th className="px-4 py-2">Data</th>
+                        <th className="px-4 py-2">Nº O.S.</th>
+                        <th className="px-4 py-2">Aparelho / Equipamento</th>
+                        <th className="px-4 py-2 text-right">Valor Comissão</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850/60 print:divide-black">
+                      {otherOSList.map((os) => (
+                        <tr key={os.id} className="hover:bg-slate-800/10 text-slate-300 print:text-black font-medium">
+                          <td className="px-4 py-2 font-bold">{os.unitName}</td>
+                          <td className="px-4 py-2">{os.date}</td>
+                          <td className="px-4 py-2 font-mono font-bold text-white print:text-black">#{String(os.osNumber).padStart(4, "0")}</td>
+                          <td className="px-4 py-2">{os.equipment}</td>
+                          <td className="px-4 py-2 text-right font-mono font-bold text-white print:text-black">R$ {os.commission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-[#030712]/40 font-bold text-white print:text-black">
+                        <td colSpan={4} className="px-4 py-2 text-right text-[9px] uppercase text-slate-450 print:text-black">SUBTOTAL OUTRAS:</td>
+                        <td className="px-4 py-2 text-right font-mono text-indigo-400 print:text-black font-black">
+                          R$ {totalOtherOS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* SECTION 4: List of Employee Draws (Vales) */}
-          <div className="bg-[#090e1a] border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden print-card animate-in fade-in duration-250">
-            <h4 className="px-6 py-4 bg-[#030712] border-b border-slate-800 text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 print-title">
-              <MinusCircle className="w-4 h-4 text-rose-500 shrink-0" />
-              <span>Demonstrativo de Vales / Adiantamentos Salariais Recebidos</span>
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#030712]/50 border-b border-slate-850 text-slate-400 font-bold uppercase tracking-wider text-[10px] print:text-black">
-                  <tr>
-                    <th className="px-6 py-3.5">Unidade</th>
-                    <th className="px-6 py-3.5">Data Lançamento</th>
-                    <th className="px-6 py-3.5">Motivo / Descrição do Vale</th>
-                    <th className="px-6 py-3.5 text-right">Valor Deduzido</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/40 divide-dashed print:divide-black">
-                  {payrollData.valesList.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500 italic">
-                        Nenhum adiantamento ou vale retirado pelo funcionário no período.
-                      </td>
-                    </tr>
-                  ) : (
-                    payrollData.valesList.map((v) => (
-                      <tr key={v.id} className="hover:bg-slate-800/10 text-slate-355 print:text-black font-medium">
-                        <td className="px-6 py-3">
-                          <span className="inline-flex px-2 py-0.5 rounded bg-slate-850 border border-slate-800 text-[10px] font-bold text-slate-300 print:text-black print:border-none print:bg-transparent">
-                            {v.unitName}
-                          </span>
+          {/* SECTION 3: PDV Sales Separated by Unit */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2 print-title">
+              <ShoppingCart className="w-4 h-4 text-emerald-400" />
+              <span>Detalhamento de Vendas de Acessórios (2% PDV)</span>
+            </h3>
+
+            {/* A. PDV MK */}
+            {mkSalesList.length > 0 && (
+              <div className="bg-[#090e1a] border border-slate-800/80 rounded-xl overflow-hidden print-card">
+                <h4 className="px-5 py-2.5 bg-[#030712] border-b border-slate-800 text-[10px] font-black text-emerald-400 uppercase tracking-wider print-title">
+                  Vendas PDV pela MK:
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#030712]/30 border-b border-slate-850 text-slate-500 font-bold uppercase tracking-wider text-[9px] print:text-black">
+                      <tr>
+                        <th className="px-4 py-2">Data</th>
+                        <th className="px-4 py-2">Acessório / Produto</th>
+                        <th className="px-4 py-2 text-center">Qtd</th>
+                        <th className="px-4 py-2 text-right">Unitário</th>
+                        <th className="px-4 py-2 text-right">Valor Bruto</th>
+                        <th className="px-4 py-2 text-right">Comissão (2%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850/60 print:divide-black">
+                      {mkSalesList.map((sale) => (
+                        <tr key={sale.id} className="hover:bg-slate-800/10 text-slate-300 print:text-black font-medium">
+                          <td className="px-4 py-2">{sale.date}</td>
+                          <td className="px-4 py-2 font-bold text-white print:text-black">{sale.productName}</td>
+                          <td className="px-4 py-2 text-center">{sale.quantity}</td>
+                          <td className="px-4 py-2 text-right font-mono">R$ {sale.unitPrice.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right font-mono">R$ {sale.grossValue.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right font-mono font-bold text-emerald-400 print:text-black">R$ {sale.commission.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-[#030712]/40 font-bold text-white print:text-black">
+                        <td colSpan={5} className="px-4 py-2 text-right text-[9px] uppercase text-slate-450 print:text-black">SUBTOTAL PDV MK:</td>
+                        <td className="px-4 py-2 text-right font-mono text-emerald-400 print:text-black font-black">
+                          R$ {totalMKSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="px-6 py-3">{v.date}</td>
-                        <td className="px-6 py-3 text-white print:text-black font-semibold">{v.description}</td>
-                        <td className="px-6 py-3 text-right font-mono font-bold text-rose-400 print:text-black">
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* B. PDV ZIONIX */}
+            {zionixSalesList.length > 0 && (
+              <div className="bg-[#090e1a] border border-slate-800/80 rounded-xl overflow-hidden print-card">
+                <h4 className="px-5 py-2.5 bg-[#030712] border-b border-slate-800 text-[10px] font-black text-emerald-400 uppercase tracking-wider print-title">
+                  Vendas PDV pela Zionix:
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#030712]/30 border-b border-slate-850 text-slate-500 font-bold uppercase tracking-wider text-[9px] print:text-black">
+                      <tr>
+                        <th className="px-4 py-2">Data</th>
+                        <th className="px-4 py-2">Acessório / Produto</th>
+                        <th className="px-4 py-2 text-center">Qtd</th>
+                        <th className="px-4 py-2 text-right">Unitário</th>
+                        <th className="px-4 py-2 text-right">Valor Bruto</th>
+                        <th className="px-4 py-2 text-right">Comissão (2%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-850/60 print:divide-black">
+                      {zionixSalesList.map((sale) => (
+                        <tr key={sale.id} className="hover:bg-slate-800/10 text-slate-300 print:text-black font-medium">
+                          <td className="px-4 py-2">{sale.date}</td>
+                          <td className="px-4 py-2 font-bold text-white print:text-black">{sale.productName}</td>
+                          <td className="px-4 py-2 text-center">{sale.quantity}</td>
+                          <td className="px-4 py-2 text-right font-mono">R$ {sale.unitPrice.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right font-mono">R$ {sale.grossValue.toFixed(2)}</td>
+                          <td className="px-4 py-2 text-right font-mono font-bold text-emerald-400 print:text-black">R$ {sale.commission.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-[#030712]/40 font-bold text-white print:text-black">
+                        <td colSpan={5} className="px-4 py-2 text-right text-[9px] uppercase text-slate-450 print:text-black">SUBTOTAL PDV ZIONIX:</td>
+                        <td className="px-4 py-2 text-right font-mono text-emerald-400 print:text-black font-black">
+                          R$ {totalZionixSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 4: List of Vales */}
+          {payrollData.valesList.length > 0 && (
+            <div className="bg-[#090e1a] border border-slate-800/80 rounded-xl overflow-hidden print-card">
+              <h4 className="px-5 py-2.5 bg-[#030712] border-b border-slate-800 text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 print-title">
+                <MinusCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span>Demonstrativo de Vales / Adiantamentos Salariais Deduzidos</span>
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#030712]/30 border-b border-slate-850 text-slate-500 font-bold uppercase tracking-wider text-[9px] print:text-black">
+                    <tr>
+                      <th className="px-4 py-2">Unidade</th>
+                      <th className="px-4 py-2">Data Lançamento</th>
+                      <th className="px-4 py-2">Descrição do Vale</th>
+                      <th className="px-4 py-2 text-right">Valor Deduzido</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-850/60 print:divide-black font-medium">
+                    {payrollData.valesList.map((v) => (
+                      <tr key={v.id} className="hover:bg-slate-800/10 text-slate-300 print:text-black">
+                        <td className="px-4 py-2">{v.unitName}</td>
+                        <td className="px-4 py-2">{v.date}</td>
+                        <td className="px-4 py-2 text-white print:text-black font-semibold">{v.description}</td>
+                        <td className="px-4 py-2 text-right font-mono font-bold text-rose-400 print:text-black">
                           - R$ {v.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
-                    ))
-                  )}
-                  {payrollData.valesList.length > 0 && (
-                    <tr className="bg-[#030712]/30 font-bold text-white print:text-black border-t border-slate-800 print:border-black">
-                      <td colSpan={3} className="px-6 py-3 text-right text-[10px] uppercase text-slate-400 print:text-black">TOTAL DE VALES DEDUZIDOS:</td>
-                      <td className="px-6 py-3 text-right font-mono text-rose-400 print:text-black text-sm font-extrabold">
-                        - R$ {payrollData.totalVales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    ))}
+                    <tr className="bg-[#030712]/40 font-bold text-white print:text-black">
+                      <td colSpan={3} className="px-4 py-2 text-right text-[9px] uppercase text-slate-450 print:text-black">TOTAL DE VALES DEDUZIDOS:</td>
+                      <td className="px-4 py-2 text-right font-mono text-rose-400 print:text-black font-black">
+                        - R$ {totalVales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* SECTION 5: Consolidated Final Receipt */}
-          <div className="bg-[#0c1322] border border-slate-800 p-6 rounded-2xl max-w-lg mx-auto shadow-2xl space-y-4 print-card">
-            <h4 className="text-center font-extrabold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-3 flex items-center justify-center gap-2 print-title">
+          {/* SECTION 5: Consolidated Final Receipt (Compact Layout) */}
+          <div className="bg-[#0c1322] border border-slate-800 p-5 rounded-xl max-w-md mx-auto shadow-2xl space-y-3 print-card print:p-4 print:mt-4">
+            <h4 className="text-center font-extrabold text-white uppercase tracking-wider text-[10px] border-b border-slate-800 pb-2 flex items-center justify-center gap-2 print-title">
               <FileText className="w-4 h-4 text-indigo-400" />
               <span>Discriminativo Consolidado de Fechamento</span>
             </h4>
 
-            <div className="space-y-3 text-xs font-medium text-slate-300 print:text-black">
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/50 print:border-black">
-                <span className="text-slate-450 print:text-black">Valor das Diárias ({daysWorkedNum} dias):</span>
-                <span className="font-mono font-bold text-white print:text-black">R$ {totalDailyRatePay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+            <div className="space-y-2 text-xs font-semibold text-slate-300 print:text-black">
+              {/* Daily rates info */}
+              <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+                <span className="text-slate-400 print:text-black font-bold">Valor das Diárias da Quinzena ({daysWorkedNum} dias):</span>
+                <span className="font-mono text-white print:text-black font-extrabold">R$ {totalDailyRatePay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
               </div>
               
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/50 print:border-black">
-                <span className="text-slate-450 print:text-black">Comissão de Serviços (O.S.):</span>
-                <span className="font-mono font-bold text-white print:text-black">R$ {payrollData.totalOSCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+              {/* OS MK Services */}
+              <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+                <span className="text-slate-400 print:text-black">Comissão de Serviços (MK):</span>
+                <span className="font-mono text-white print:text-black">R$ {totalMKOS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/50 print:border-black">
-                <span className="text-slate-450 print:text-black">Comissão de Acessórios (2% PDV):</span>
-                <span className="font-mono font-bold text-white print:text-black">R$ {payrollData.totalAccessoryCommissions.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+              {/* OS Zionix Services */}
+              <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+                <span className="text-slate-400 print:text-black">Comissão de Serviços (Zionix):</span>
+                <span className="font-mono text-white print:text-black">R$ {totalZionixOS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/50 print:border-black text-rose-400 print:text-black">
+              {/* Other OS Services */}
+              {totalOtherOS > 0 && (
+                <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+                  <span className="text-slate-400 print:text-black">Comissão de Serviços (Outras):</span>
+                  <span className="font-mono text-white print:text-black">R$ {totalOtherOS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+
+              {/* MK Sales */}
+              {(totalMKSales > 0 || totalZionixSales > 0) && (
+                <>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+                    <span className="text-slate-400 print:text-black">Comissão PDV Acessórios (MK):</span>
+                    <span className="font-mono text-white print:text-black">R$ {totalMKSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+                    <span className="text-slate-400 print:text-black">Comissão PDV Acessórios (Zionix):</span>
+                    <span className="font-mono text-white print:text-black">R$ {totalZionixSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </>
+              )}
+
+              {/* Other Sales */}
+              {totalOtherSales > 0 && (
+                <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+                  <span className="text-slate-400 print:text-black">Comissão PDV Acessórios (Outras):</span>
+                  <span className="font-mono text-white print:text-black">R$ {totalOtherSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+
+              {/* Vale Advances */}
+              <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300 text-rose-400 print:text-black">
                 <span>(-) Adiantamentos / Vales Deduzidos:</span>
-                <span className="font-mono font-bold">- R$ {payrollData.totalVales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                <span className="font-mono font-bold">- R$ {totalVales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="flex justify-between items-center pt-4 text-sm font-extrabold text-white print:text-black">
-                <span className="text-indigo-400 print:text-black uppercase tracking-wider">Valor Líquido Total a Pagar:</span>
-                <span className="font-mono text-base text-indigo-400 print:text-black font-black">
+              {/* Final Liquido pay */}
+              <div className="flex justify-between items-center pt-3 text-xs font-black text-white print:text-black">
+                <span className="text-indigo-400 print:text-black uppercase tracking-wider font-extrabold text-[10px]">VALOR LÍQUIDO A PAGAR:</span>
+                <span className="font-mono text-sm text-indigo-400 print:text-black font-black">
                   R$ {totalPayrollPay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
 
             {/* Print Signatures Placeholder */}
-            <div className="hidden print:block space-y-12 pt-16 text-[10px] text-center">
-              <div className="grid grid-cols-2 gap-12">
+            <div className="hidden print:block space-y-10 pt-10 text-[9px] text-center">
+              <div className="grid grid-cols-2 gap-8">
                 <div>
-                  <div className="border-t border-black w-40 mx-auto pt-1" />
+                  <div className="border-t border-black w-36 mx-auto pt-0.5" />
                   <p className="font-bold">ZIONIX IMPORT / ASSISTÊNCIA</p>
-                  <p className="text-[9px] text-slate-500">Assinatura do Empregador</p>
+                  <p className="text-[8px] text-slate-500">Assinatura do Empregador</p>
                 </div>
                 <div>
-                  <div className="border-t border-black w-40 mx-auto pt-1" />
+                  <div className="border-t border-black w-36 mx-auto pt-0.5" />
                   <p className="font-bold">{payrollData.employeeName.toUpperCase()}</p>
-                  <p className="text-[9px] text-slate-500">Assinatura do Colaborador</p>
+                  <p className="text-[8px] text-slate-500">Assinatura do Colaborador</p>
                 </div>
               </div>
             </div>

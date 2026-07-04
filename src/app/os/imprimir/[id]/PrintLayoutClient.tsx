@@ -301,15 +301,18 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
                 <p className="text-slate-400 print:text-black italic">Nenhuma peça aplicada.</p>
               ) : (
                 <div className="max-h-[60px] overflow-hidden leading-snug space-y-0.5">
-                  {partName ? (
+                  {partName && (
                     <div className="font-bold uppercase">• {partName.toUpperCase()}</div>
-                  ) : (
-                    os.items.map((item) => (
-                      <div key={item.id}>
-                        • {item.product.name} (x{item.quantity})
-                      </div>
-                    ))
                   )}
+                  {os.items.map((item) => {
+                    const isCustom = item.product.sku.startsWith("OS-CUSTOM");
+                    const displayName = isCustom ? item.product.name.replace(/ \(O\.S\. #\d+\)$/, "") : item.product.name;
+                    return (
+                      <div key={item.id}>
+                        • {displayName} (x{item.quantity})
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -704,17 +707,20 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               {(partName || os.items.length > 0) && (
                 <div className="space-y-1 border-b border-dashed border-black pb-2 text-[9px]">
                   <div className="font-bold uppercase text-[10px]">Peças:</div>
-                  {partName ? (
+                  {partName && (
                     <div className="leading-snug font-bold uppercase">
                       • {partName}
                     </div>
-                  ) : (
-                    os.items.map((item) => (
-                      <div key={item.id} className="leading-snug">
-                        • {item.product.name} (x{item.quantity})
-                      </div>
-                    ))
                   )}
+                  {os.items.map((item) => {
+                    const isCustom = item.product.sku.startsWith("OS-CUSTOM");
+                    const displayName = isCustom ? item.product.name.replace(/ \(O\.S\. #\d+\)$/, "") : item.product.name;
+                    return (
+                      <div key={item.id} className="leading-snug">
+                        • {displayName} (x{item.quantity})
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

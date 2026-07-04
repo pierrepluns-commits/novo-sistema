@@ -141,7 +141,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
     companyConfig.intakeTerms || defaultIntakeTerms
   );
   const [deliveryTerms, setDeliveryTerms] = useState<string>(
-    companyConfig.deliveryTerms || defaultDeliveryTerms
+    companyConfig.deliveryTerms || os.company.receiptFooter || defaultDeliveryTerms
   );
 
   // Parse checklist

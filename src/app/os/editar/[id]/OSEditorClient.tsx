@@ -365,7 +365,18 @@ export default function OSEditorClient({
   const [cardFee, setCardFee] = useState("0");
   const [customDate, setCustomDate] = useState("");
 
-  const isCardPayment = paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD";
+  // Split payment state variables
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [splitPayments, setSplitPayments] = useState<Array<{ method: string; amount: string; installments: string; cardFee: string }>>([]);
+  
+  const [tempSplitMethod, setTempSplitMethod] = useState("CASH");
+  const [tempSplitAmount, setTempSplitAmount] = useState("");
+  const [tempSplitInstallments, setTempSplitInstallments] = useState("1");
+  const [tempSplitCardFee, setTempSplitCardFee] = useState("0");
+
+  const isCardPayment = isSplitPayment
+    ? splitPayments.some(s => s.method === "CREDIT_CARD" || s.method === "DEBIT_CARD")
+    : (paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD");
   const activeLaborPrice = os.status === "DELIVERED"
     ? os.servicePrice
     : (isCardPayment
@@ -404,14 +415,56 @@ export default function OSEditorClient({
   const cashMargin = totalCashCharged > 0 ? (cashNetProfit / totalCashCharged) * 100 : 0;
   const cardMargin = totalCardCharged > 0 ? (cardNetProfit / totalCardCharged) * 100 : 0;
 
+  const handleAddSplit = () => {
+    const amt = parseFloat(tempSplitAmount) || 0;
+    if (amt <= 0) {
+      alert("Informe um valor maior que zero.");
+      return;
+    }
+    const totalSoFar = splitPayments.reduce((sum, sp) => sum + (parseFloat(sp.amount) || 0), 0);
+    if (totalSoFar + amt > remainderToPay + 0.01) {
+      alert("O valor adicionado ultrapassa o saldo restante a cobrar.");
+      return;
+    }
+    
+    setSplitPayments([...splitPayments, {
+      method: tempSplitMethod,
+      amount: String(amt),
+      installments: tempSplitInstallments,
+      cardFee: tempSplitCardFee
+    }]);
+    setTempSplitAmount("");
+    setTempSplitCardFee("0");
+    setTempSplitInstallments("1");
+  };
+
+  const handleRemoveSplit = (index: number) => {
+    setSplitPayments(splitPayments.filter((_, i) => i !== index));
+  };
+
   const handleBillCheckout = async () => {
     setGlobalMessage(null);
     startTransition(async () => {
+      let methodPayload = paymentMethod;
+      let finalCardFee = parseFloat(cardFee) || 0;
+      let finalInstallments = parseInt(installments, 10) || 1;
+
+      if (isSplitPayment) {
+        methodPayload = JSON.stringify(splitPayments.map(sp => ({
+          method: sp.method,
+          amount: parseFloat(sp.amount) || 0,
+          installments: parseInt(sp.installments, 10) || 1,
+          cardFee: parseFloat(sp.cardFee) || 0
+        })));
+        finalCardFee = 0;
+        finalInstallments = 1;
+      }
+
       const res = await finishAndBillServiceOrderAction(
         os.id,
-        paymentMethod,
-        parseFloat(cardFee) || 0,
-        parseInt(installments, 10) || 1,
+        methodPayload,
+        finalCardFee,
+        finalInstallments,
         discountNum,
         parseFloat(techForm.servicePrice) || 0,
         parseFloat(techForm.cardServicePrice) || 0,
@@ -1674,60 +1727,218 @@ export default function OSEditorClient({
                 <p className="text-[9px] text-slate-500">Deixe em branco para registrar com a data e hora atual.</p>
               </div>
 
-              {/* Payment Method Option */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Forma de Pagamento</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
-                >
-                  <option value="CASH">Dinheiro (Espécie)</option>
-                  <option value="PIX">Pix Transferência</option>
-                  <option value="CREDIT_CARD">Cartão de Crédito</option>
-                  <option value="DEBIT_CARD">Cartão de Débito</option>
-                </select>
+              {/* Option to Split Payment */}
+              <div className="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  id="splitPaymentCheckbox"
+                  checked={isSplitPayment}
+                  onChange={(e) => {
+                    setIsSplitPayment(e.target.checked);
+                    setSplitPayments([]);
+                  }}
+                  className="w-4 h-4 rounded border-slate-800 bg-slate-950 text-indigo-650 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label htmlFor="splitPaymentCheckbox" className="text-xs font-bold text-slate-300 cursor-pointer select-none">
+                  Dividir Pagamento (Múltiplas Formas)
+                </label>
               </div>
 
-              {/* Installments & Fees for Cards */}
-              {(paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD") && (
-                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
-                  {/* Qty of installments */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">Parcelas</label>
+              {!isSplitPayment ? (
+                <>
+                  {/* Payment Method Option */}
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Forma de Pagamento</label>
                     <select
-                      value={installments}
-                      onChange={(e) => setInstallments(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none"
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
                     >
-                      <option value="1">1x à vista</option>
-                      <option value="2">2x</option>
-                      <option value="3">3x</option>
-                      <option value="4">4x</option>
-                      <option value="5">5x</option>
-                      <option value="6">6x</option>
-                      <option value="7">7x</option>
-                      <option value="8">8x</option>
-                      <option value="9">9x</option>
-                      <option value="10">10x</option>
-                      <option value="11">11x</option>
-                      <option value="12">12x</option>
+                      <option value="CASH">Dinheiro (Espécie)</option>
+                      <option value="PIX">Pix Transferência</option>
+                      <option value="CREDIT_CARD">Cartão de Crédito</option>
+                      <option value="DEBIT_CARD">Cartão de Débito</option>
                     </select>
                   </div>
 
-                  {/* Card fee */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">Taxa da Maquininha (R$)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={cardFee}
-                      onChange={(e) => setCardFee(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-mono"
-                    />
-                  </div>
+                  {/* Installments & Fees for Cards */}
+                  {(paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD") && (
+                    <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
+                      {/* Qty of installments */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">Parcelas</label>
+                        <select
+                          value={installments}
+                          onChange={(e) => setInstallments(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-bold"
+                        >
+                          <option value="1">1x à vista</option>
+                          <option value="2">2x</option>
+                          <option value="3">3x</option>
+                          <option value="4">4x</option>
+                          <option value="5">5x</option>
+                          <option value="6">6x</option>
+                          <option value="7">7x</option>
+                          <option value="8">8x</option>
+                          <option value="9">9x</option>
+                          <option value="10">10x</option>
+                          <option value="11">11x</option>
+                          <option value="12">12x</option>
+                        </select>
+                      </div>
+
+                      {/* Card fee */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider min-h-[34px] flex items-end pb-1">Taxa da Maquininha (R$)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={cardFee}
+                          onChange={(e) => setCardFee(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-3 p-4 bg-slate-900/40 border border-slate-800 rounded-xl animate-in fade-in duration-200">
+                  <span className="text-[10px] font-black text-indigo-400 uppercase tracking-wider block">Distribuição do Pagamento</span>
+                  
+                  {/* List of current splits */}
+                  {splitPayments.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic">Nenhuma forma de pagamento adicionada ainda.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {splitPayments.map((sp, idx) => {
+                        const label = 
+                          sp.method === "CASH" ? "Dinheiro" : 
+                          sp.method === "PIX" ? "PIX" : 
+                          sp.method === "CREDIT_CARD" ? "Crédito" : "Débito";
+                        return (
+                          <div key={idx} className="flex justify-between items-center text-xs bg-slate-950 border border-slate-850 p-2.5 rounded-lg font-bold">
+                            <div>
+                              <span className="text-white">R$ {parseFloat(sp.amount).toFixed(2)} - {label}</span>
+                              {(sp.method === "CREDIT_CARD" || sp.method === "DEBIT_CARD") && (
+                                <span className="text-slate-500 text-[10px] block mt-0.5">
+                                  {sp.installments}x {parseFloat(sp.cardFee) > 0 && `| Taxa: R$ ${parseFloat(sp.cardFee).toFixed(2)}`}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSplit(idx)}
+                              className="p-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer font-bold"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Summary progress balance */}
+                  {(() => {
+                    const splitSum = splitPayments.reduce((sum, sp) => sum + (parseFloat(sp.amount) || 0), 0);
+                    const diff = remainderToPay - splitSum;
+                    return (
+                      <div className={`p-3 rounded-xl border text-[10px] font-bold ${
+                        Math.abs(diff) < 0.01 
+                          ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-400" 
+                          : "bg-amber-500/5 border-amber-500/10 text-amber-400"
+                      }`}>
+                        {Math.abs(diff) < 0.01 ? (
+                          <span>✓ Saldo de R$ {remainderToPay.toFixed(2)} totalmente distribuído!</span>
+                        ) : (
+                          <span>Ainda faltam distribuir: R$ {diff.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Split addition form fields if balance is not met */}
+                  {(() => {
+                    const splitSum = splitPayments.reduce((sum, sp) => sum + (parseFloat(sp.amount) || 0), 0);
+                    if (Math.abs(splitSum - remainderToPay) < 0.01) return null;
+                    return (
+                      <div className="border-t border-slate-800/80 pt-3 space-y-3 animate-in fade-in duration-200">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Adicionar Parcela</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {/* Method selection */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500 uppercase font-bold">Forma</label>
+                            <select
+                              value={tempSplitMethod}
+                              onChange={(e) => setTempSplitMethod(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                            >
+                              <option value="CASH">Dinheiro</option>
+                              <option value="PIX">Pix</option>
+                              <option value="CREDIT_CARD">Crédito</option>
+                              <option value="DEBIT_CARD">Débito</option>
+                            </select>
+                          </div>
+
+                          {/* Amount input */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500 uppercase font-bold">Valor (R$)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={tempSplitAmount}
+                              onChange={(e) => setTempSplitAmount(e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Card config splits */}
+                        {(tempSplitMethod === "CREDIT_CARD" || tempSplitMethod === "DEBIT_CARD") && (
+                          <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2 duration-150">
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-slate-500 uppercase font-bold">Parcelas</label>
+                              <select
+                                value={tempSplitInstallments}
+                                onChange={(e) => setTempSplitInstallments(e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-855 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                              >
+                                {[...Array(12)].map((_, i) => (
+                                  <option key={i + 1} value={String(i + 1)}>{i + 1}x</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-slate-500 uppercase font-bold">Taxa (R$)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={tempSplitCardFee}
+                                onChange={(e) => setTempSplitCardFee(e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none font-mono"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <Button
+                          type="button"
+                          onClick={handleAddSplit}
+                          disabled={!tempSplitAmount || parseFloat(tempSplitAmount) <= 0}
+                          className="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs py-1.5 rounded-lg font-bold"
+                          icon={Plus}
+                        >
+                          Adicionar Forma de Pagamento
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1750,7 +1961,10 @@ export default function OSEditorClient({
                 </Button>
                 <Button
                   onClick={handleBillCheckout}
-                  disabled={isPending}
+                  disabled={
+                    isPending || 
+                    (isSplitPayment && Math.abs(splitPayments.reduce((sum, sp) => sum + (parseFloat(sp.amount) || 0), 0) - remainderToPay) >= 0.01)
+                  }
                   className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold"
                 >
                   {isPending ? (

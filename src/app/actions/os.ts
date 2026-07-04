@@ -564,7 +564,20 @@ export async function finishAndBillServiceOrderAction(
     }
 
     // Determine the base labor price based on payment method
-    const isCard = paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD";
+    let isSplit = false;
+    let splits: Array<{ method: string; amount: number; installments?: number; cardFee?: number }> = [];
+    if (paymentMethod.startsWith("[")) {
+      try {
+        splits = JSON.parse(paymentMethod);
+        isSplit = true;
+      } catch {
+        isSplit = false;
+      }
+    }
+
+    const isCard = isSplit
+      ? splits.some(s => s.method === "CREDIT_CARD" || s.method === "DEBIT_CARD")
+      : (paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD");
     const baseLaborPrice = isCard ? finalCardServicePrice : currentServicePrice;
 
     // Calcular valores finais a receber
@@ -619,49 +632,93 @@ export async function finishAndBillServiceOrderAction(
 
       // 2. Criar Transação de Receita do Saldo Restante (Se houver restante)
       if (remainder > 0 && register) {
-        const methodLabel = 
-          paymentMethod === "CASH" ? "Dinheiro" : 
-          paymentMethod === "PIX" ? "PIX" : 
-          paymentMethod === "CREDIT_CARD" ? "Crédito" : "Débito";
+        if (isSplit) {
+          for (const s of splits) {
+            if (s.amount > 0) {
+              const methodLabel = 
+                s.method === "CASH" ? "Dinheiro" : 
+                s.method === "PIX" ? "PIX" : 
+                s.method === "CREDIT_CARD" ? "Crédito" : "Débito";
 
-        // Calculate profit breakdown for description
-        const totalPartsCost = os.partsPrice || 0;
-        const outsourcedCost = os.cost || 0;
-        const consolidatedCost = totalPartsCost + outsourcedCost + cardFee + accessoryCost;
-        const profit = totalAmount - consolidatedCost;
+              const detailDescription = `Fecham. O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel}) - Recebido: R$ ${s.amount.toFixed(2)} via ${methodLabel} - ${timeStr}`;
 
-        const detailDescription = `Fecham. O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel}) - Total: R$ ${totalAmount.toFixed(2)} | Custo: R$ ${consolidatedCost.toFixed(2)} (Peça: R$ ${totalPartsCost.toFixed(2)}, Comissão: R$ ${outsourcedCost.toFixed(2)}, Acessórios: R$ ${accessoryCost.toFixed(2)}${cardFee > 0 ? `, Taxa: R$ ${cardFee.toFixed(2)}` : ""}) | Lucro: R$ ${profit.toFixed(2)} - ${methodLabel} - ${timeStr}`;
+              await tx.financialTransaction.create({
+                data: {
+                  type: "INCOME",
+                  companyId: session.companyId!,
+                  unitId: os.unitId,
+                  amount: s.amount,
+                  description: detailDescription,
+                  category: "Venda de Serviços/Assistência",
+                  transactionDate: transactionDate,
+                  userId: session.userId,
+                  cashRegisterId: register.id,
+                },
+              });
 
-        await tx.financialTransaction.create({
-          data: {
-            type: "INCOME",
-            companyId: session.companyId!,
-            unitId: os.unitId,
-            amount: remainder,
-            description: detailDescription,
-            category: "Venda de Serviços/Assistência",
-            transactionDate: transactionDate,
-            userId: session.userId,
-            cashRegisterId: register.id,
-          },
-        });
-      }
+              // Se houver taxa de cartão
+              if (s.cardFee && s.cardFee > 0) {
+                await tx.financialTransaction.create({
+                  data: {
+                    type: "EXPENSE",
+                    companyId: session.companyId!,
+                    unitId: os.unitId,
+                    amount: s.cardFee,
+                    description: `Taxa Cartão - O.S. #${os.osNumber} - ${timeStr}`,
+                    category: "Taxas e Tarifas",
+                    transactionDate: transactionDate,
+                    userId: session.userId,
+                    cashRegisterId: register.id,
+                  },
+                });
+              }
+            }
+          }
+        } else {
+          const methodLabel = 
+            paymentMethod === "CASH" ? "Dinheiro" : 
+            paymentMethod === "PIX" ? "PIX" : 
+            paymentMethod === "CREDIT_CARD" ? "Crédito" : "Débito";
 
-      // 3. Se houver taxa de cartão, registra como despesa de taxa
-      if (cardFee > 0 && register && (paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD")) {
-        await tx.financialTransaction.create({
-          data: {
-            type: "EXPENSE",
-            companyId: session.companyId!,
-            unitId: os.unitId,
-            amount: cardFee,
-            description: `Taxa Cartão - O.S. #${os.osNumber} - ${timeStr}`,
-            category: "Taxas e Tarifas",
-            transactionDate: transactionDate,
-            userId: session.userId,
-            cashRegisterId: register.id,
-          },
-        });
+          // Calculate profit breakdown for description
+          const totalPartsCost = os.partsPrice || 0;
+          const outsourcedCost = os.cost || 0;
+          const consolidatedCost = totalPartsCost + outsourcedCost + cardFee + accessoryCost;
+          const profit = totalAmount - consolidatedCost;
+
+          const detailDescription = `Fecham. O.S. #${os.osNumber}: (${os.equipmentBrand} ${os.equipmentModel}) - Total: R$ ${totalAmount.toFixed(2)} | Custo: R$ ${consolidatedCost.toFixed(2)} (Peça: R$ ${totalPartsCost.toFixed(2)}, Comissão: R$ ${outsourcedCost.toFixed(2)}, Acessórios: R$ ${accessoryCost.toFixed(2)}${cardFee > 0 ? `, Taxa: R$ ${cardFee.toFixed(2)}` : ""}) | Lucro: R$ ${profit.toFixed(2)} - ${methodLabel} - ${timeStr}`;
+
+          await tx.financialTransaction.create({
+            data: {
+              type: "INCOME",
+              companyId: session.companyId!,
+              unitId: os.unitId,
+              amount: remainder,
+              description: detailDescription,
+              category: "Venda de Serviços/Assistência",
+              transactionDate: transactionDate,
+              userId: session.userId,
+              cashRegisterId: register.id,
+            },
+          });
+
+          // Se houver taxa de cartão
+          if (cardFee > 0 && (paymentMethod === "CREDIT_CARD" || paymentMethod === "DEBIT_CARD")) {
+            await tx.financialTransaction.create({
+              data: {
+                type: "EXPENSE",
+                companyId: session.companyId!,
+                unitId: os.unitId,
+                amount: cardFee,
+                description: `Taxa Cartão - O.S. #${os.osNumber} - ${timeStr}`,
+                category: "Taxas e Tarifas",
+                transactionDate: transactionDate,
+                userId: session.userId,
+                cashRegisterId: register.id,
+              },
+            });
+          }
+        }
       }
 
       // 4. Registrar custo das peças como CMV na O.S. (Gera transparência no lucro total do mês)
@@ -730,15 +787,33 @@ export async function finishAndBillServiceOrderAction(
         });
       }
 
+      let finalPaymentMethodSaved = paymentMethod;
+      let finalInstallmentsSaved = installments;
+      let finalCardFeeSaved = cardFee;
+
+      if (isSplit) {
+        finalPaymentMethodSaved = splits.map(s => {
+          const methodLabel = 
+            s.method === "CASH" ? "Dinheiro" : 
+            s.method === "PIX" ? "PIX" : 
+            s.method === "CREDIT_CARD" ? "Crédito" : "Débito";
+          return `R$ ${s.amount.toFixed(2)} (${methodLabel})`;
+        }).join(" + ");
+        
+        const cardSplit = splits.find(s => s.method === "CREDIT_CARD" || s.method === "DEBIT_CARD");
+        finalInstallmentsSaved = cardSplit?.installments || 1;
+        finalCardFeeSaved = splits.reduce((sum, s) => sum + (s.cardFee || 0), 0);
+      }
+
       // 5. Atualizar O.S. como entregue, confirmando as taxas, adiantamento, desconto e garantias
       await tx.serviceOrder.update({
         where: { id: osId },
         data: {
           status: "DELIVERED",
           discount,
-          paymentMethod,
-          installments,
-          cardFee,
+          paymentMethod: finalPaymentMethodSaved,
+          installments: finalInstallmentsSaved,
+          cardFee: finalCardFeeSaved,
           warrantyExpiresAt,
           warrantyStatus: os.warrantyPeriod > 0 ? "ACTIVE" : "VOIDED",
           totalAmount,

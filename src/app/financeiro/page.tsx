@@ -137,7 +137,10 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     prisma.financialTransaction.findMany({
       where: {
         ...baseWhere,
-        transactionDate: { gte: start, lte: end }
+        transactionDate: { gte: start, lte: end },
+        NOT: {
+          type: "SALARY_VALE"
+        }
       },
       include: { user: true, unit: true },
       orderBy: { transactionDate: "desc" }
@@ -166,7 +169,10 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     prisma.financialTransaction.findMany({
       where: {
         ...baseWhere,
-        transactionDate: { gte: startA, lte: endA }
+        transactionDate: { gte: startA, lte: endA },
+        NOT: {
+          type: "SALARY_VALE"
+        }
       }
     }),
     prisma.sale.findMany({
@@ -183,7 +189,10 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
     prisma.financialTransaction.findMany({
       where: {
         ...baseWhere,
-        transactionDate: { gte: startB, lte: endB }
+        transactionDate: { gte: startB, lte: endB },
+        NOT: {
+          type: "SALARY_VALE"
+        }
       }
     }),
     prisma.sale.findMany({

@@ -143,7 +143,7 @@ export async function calculateSalaryPayrollAction(
         companyId: session.companyId,
         ...unitCondition,
         userId: user.id,
-        type: "EXPENSE",
+        type: "SALARY_VALE",
         category: "VALE",
         transactionDate: {
           gte: start,
@@ -209,7 +209,7 @@ export async function createSalaryValeAction(
         companyId: session.companyId,
         unitId: selectedUnitId,
         userId: userId, // Tag transaction to this user/employee
-        type: "EXPENSE",
+        type: "SALARY_VALE",
         amount,
         description: `VALE: ${description.trim()}`,
         category: "VALE",

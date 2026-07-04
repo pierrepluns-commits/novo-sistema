@@ -44,7 +44,13 @@ export default async function Estoque() {
         sku: {
           startsWith: "OS-CUSTOM-"
         }
-      }
+      },
+      // Only show products that have a stock record in the selected unit (if selected)
+      stocks: selectedUnitId ? {
+        some: {
+          unitId: selectedUnitId
+        }
+      } : undefined
     },
     include: {
       stocks: {

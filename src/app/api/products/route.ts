@@ -19,7 +19,13 @@ export async function GET() {
           sku: {
             startsWith: "OS-CUSTOM-"
           }
-        }
+        },
+        // Only fetch products with a stock record in the selected unit
+        stocks: activeUnitId ? {
+          some: {
+            unitId: activeUnitId
+          }
+        } : undefined
       },
       include: {
         stocks: {

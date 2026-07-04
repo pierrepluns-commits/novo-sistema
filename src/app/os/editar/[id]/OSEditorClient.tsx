@@ -20,7 +20,8 @@ import {
   deleteServiceOrderAction,
   transferServiceOrderAction,
   addPartToServiceOrderAction,
-  removePartFromServiceOrderAction
+  removePartFromServiceOrderAction,
+  addCustomPartToServiceOrderAction
 } from "../../../actions/os";
 import Link from "next/link";
 
@@ -262,13 +263,17 @@ export default function OSEditorClient({
     });
   };
 
-  // --- TAB 3: Simple Part Name & Cost State ---
-  const [partNameInput, setPartNameInput] = useState(initialChecklistObj.partName || "");
-  const [partCostInput, setPartCostInput] = useState(String(os.partsPrice || 0));
+  // --- TAB 3: Parts & Accessory Cost State ---
   const [accessoryCostInput, setAccessoryCostInput] = useState(initialChecklistObj.accessoryCost !== undefined ? String(initialChecklistObj.accessoryCost) : "0");
 
+  // Inventory Parts State
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedPartQty, setSelectedPartQty] = useState("1");
+
+  // Custom Parts State
+  const [customPartNameInput, setCustomPartNameInput] = useState("");
+  const [customPartCostInput, setCustomPartCostInput] = useState("");
+  const [customPartQtyInput, setCustomPartQtyInput] = useState("1");
 
   const handleAddInventoryPart = async () => {
     if (!selectedProductId) return;
@@ -296,6 +301,31 @@ export default function OSEditorClient({
     });
   };
 
+  const handleAddCustomPart = async () => {
+    if (!customPartNameInput.trim()) return;
+
+    setGlobalMessage(null);
+    startTransition(async () => {
+      const res = await addCustomPartToServiceOrderAction(
+        os.id,
+        customPartNameInput,
+        parseInt(customPartQtyInput, 10) || 1,
+        0, // price is 0 since parts are not charged to customer
+        parseFloat(customPartCostInput) || 0
+      );
+
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+      } else {
+        setGlobalMessage({ text: "Peça avulsa adicionada com sucesso!", type: "success" });
+        setCustomPartNameInput("");
+        setCustomPartCostInput("");
+        setCustomPartQtyInput("1");
+        router.refresh();
+      }
+    });
+  };
+
   const handleRemoveInventoryPart = async (itemId: string) => {
     setGlobalMessage(null);
     startTransition(async () => {
@@ -309,19 +339,19 @@ export default function OSEditorClient({
     });
   };
 
-  const handleUpdatePart = async () => {
+  const handleUpdateAccessoryCost = async () => {
     setGlobalMessage(null);
     startTransition(async () => {
       const res = await updateServiceOrderPartAction(
         os.id,
-        partNameInput,
-        parseFloat(partCostInput) || 0,
+        "",
+        0,
         parseFloat(accessoryCostInput) || 0
       );
       if (res.error) {
         setGlobalMessage({ text: res.error, type: "error" });
       } else {
-        setGlobalMessage({ text: "Dados da peça e custo atualizados!", type: "success" });
+        setGlobalMessage({ text: "Custo de acessórios atualizado!", type: "success" });
         router.refresh();
       }
     });
@@ -1002,6 +1032,33 @@ export default function OSEditorClient({
               </p>
             </div>
 
+            {/* Legacy Warning Section if it exists */}
+            {initialChecklistObj.partName && (
+              <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-2 text-xs font-bold">
+                <span className="text-amber-400 font-bold uppercase tracking-wider block">⚠️ Peça Legada Detectada</span>
+                <p className="text-slate-400 font-medium">
+                  Esta O.S. possui uma peça registrada no formato antigo: <strong className="text-white">{initialChecklistObj.partName}</strong> com custo de <strong className="text-white">R$ {os.partsPrice.toFixed(2)}</strong>.
+                </p>
+                {os.status !== "DELIVERED" && (
+                  <Button
+                    onClick={async () => {
+                      setGlobalMessage(null);
+                      startTransition(async () => {
+                        const res = await updateServiceOrderPartAction(os.id, "", 0, parseFloat(accessoryCostInput) || 0);
+                        if (!res.error) {
+                          setGlobalMessage({ text: "Registro legado convertido com sucesso!", type: "success" });
+                          router.refresh();
+                        }
+                      });
+                    }}
+                    className="bg-amber-600/10 text-amber-400 hover:bg-amber-600/20 border border-amber-600/20 text-[10px] px-3 py-1.5 rounded-xl font-bold"
+                  >
+                    Remover / Limpar Registro Legado
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* 1. SEÇÃO DE PEÇAS DE ESTOQUE (INVENTÁRIO) */}
             <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-4">
               <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
@@ -1071,26 +1128,39 @@ export default function OSEditorClient({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-850/60">
-                        {os.items.map((item) => (
-                          <tr key={item.id} className="text-slate-300">
-                            <td className="py-2.5 font-bold text-white">{item.product.name}</td>
-                            <td className="py-2.5 font-mono">{item.product.sku}</td>
-                            <td className="py-2.5 text-center font-bold">{item.quantity}</td>
-                            <td className="py-2.5 text-right font-mono">R$ {item.unitCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                            <td className="py-2.5 text-right font-mono font-bold text-white">R$ {(item.quantity * item.unitCost).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
-                            {os.status !== "DELIVERED" && (
-                              <td className="py-2.5 text-right">
-                                <button
-                                  onClick={() => handleRemoveInventoryPart(item.id)}
-                                  disabled={isPending}
-                                  className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-95 cursor-pointer font-bold"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                        {os.items.map((item) => {
+                          const isCustom = item.product.sku.startsWith("OS-CUSTOM");
+                          const cleanName = isCustom ? item.product.name.replace(/ \(O\.S\. #\d+\)$/, "") : item.product.name;
+                          return (
+                            <tr key={item.id} className="text-slate-300">
+                              <td className="py-2.5 font-bold text-white flex items-center gap-2">
+                                <span>{cleanName}</span>
+                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
+                                  isCustom 
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                    : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                                }`}>
+                                  {isCustom ? "Avulsa" : "Estoque"}
+                                </span>
                               </td>
-                            )}
-                          </tr>
-                        ))}
+                              <td className="py-2.5 font-mono">{isCustom ? "AVULSO" : item.product.sku}</td>
+                              <td className="py-2.5 text-center font-bold">{item.quantity}</td>
+                              <td className="py-2.5 text-right font-mono">R$ {item.unitCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                              <td className="py-2.5 text-right font-mono font-bold text-white">R$ {(item.quantity * item.unitCost).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                              {os.status !== "DELIVERED" && (
+                                <td className="py-2.5 text-right">
+                                  <button
+                                    onClick={() => handleRemoveInventoryPart(item.id)}
+                                    disabled={isPending}
+                                    className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-95 cursor-pointer font-bold"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1098,47 +1168,78 @@ export default function OSEditorClient({
               </div>
             </div>
 
-            {/* 2. SEÇÃO DE LANÇAMENTO RÁPIDO DE PEÇA AVULSA */}
+            {/* 2. SEÇÃO DE PEÇAS AVULSAS (SEM CADASTRO) */}
             <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-4">
               <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
                 <Clipboard className="w-4 h-4" />
-                <span>2. Peça Avulsa Adicional (Sem Cadastro / Rápido)</span>
+                <span>2. Peças Avulsas (Sem Cadastro no Inventário)</span>
               </h4>
 
-              <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end font-bold text-white">
-                {/* Part Name */}
-                <div className="space-y-1.5 flex-[2] w-full">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Trocada</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Tela Frontal iPhone 11 OEM..."
-                    value={partNameInput}
-                    disabled={os.status === "DELIVERED"}
-                    onChange={(e) => setPartNameInput(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold text-white"
-                  />
-                </div>
-
-                {/* Part Cost */}
-                <div className="space-y-1.5 flex-1 w-full">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo da Peça (R$)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+              {os.status !== "DELIVERED" && (
+                <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end font-bold text-white">
+                  {/* Custom Part Name */}
+                  <div className="space-y-1.5 flex-[2] w-full">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Avulsa</label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={partCostInput}
-                      disabled={os.status === "DELIVERED"}
-                      onChange={(e) => setPartCostInput(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
+                      type="text"
+                      placeholder="Ex: Tela Frontal Importada..."
+                      value={customPartNameInput}
+                      onChange={(e) => setCustomPartNameInput(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
                     />
                   </div>
-                </div>
 
-                {/* Accessory Cost */}
-                <div className="space-y-1.5 flex-1 w-full">
+                  {/* Quantity */}
+                  <div className="space-y-1.5 w-24 shrink-0">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Qtd</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={customPartQtyInput}
+                      onChange={(e) => setCustomPartQtyInput(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  {/* Custom Part Cost */}
+                  <div className="space-y-1.5 flex-1 w-full font-bold">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={customPartCostInput}
+                        onChange={(e) => setCustomPartCostInput(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Add Button */}
+                  <Button
+                    onClick={handleAddCustomPart}
+                    disabled={isPending || !customPartNameInput.trim()}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-[42px] px-5 py-2.5 rounded-xl shrink-0 cursor-pointer active:scale-95 transition-all w-full md:w-auto"
+                    icon={Plus}
+                  >
+                    Adicionar Peça Avulsa
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* 3. SEÇÃO DE CUSTO DE ACESSÓRIOS */}
+            <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-4">
+              <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                <Smartphone className="w-4 h-4" />
+                <span>3. Custo Geral de Acessórios (Películas, Capas, Cola, etc.)</span>
+              </h4>
+
+              <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end font-bold text-white max-w-xl">
+                <div className="space-y-1.5 flex-1 w-full font-bold">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Custo de Acessórios (R$)</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
@@ -1150,20 +1251,19 @@ export default function OSEditorClient({
                       value={accessoryCostInput}
                       disabled={os.status === "DELIVERED"}
                       onChange={(e) => setAccessoryCostInput(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold"
                     />
                   </div>
                 </div>
 
-                {/* Save Button */}
                 {os.status !== "DELIVERED" && (
                   <Button
-                    onClick={handleUpdatePart}
+                    onClick={handleUpdateAccessoryCost}
                     disabled={isPending}
                     className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-[42px] px-5 py-2.5 rounded-xl shrink-0 cursor-pointer active:scale-95 transition-all w-full md:w-auto"
                     icon={Save}
                   >
-                    {isPending ? "Salvando..." : "Salvar Peça Avulsa"}
+                    {isPending ? "Salvando..." : "Salvar Acessórios"}
                   </Button>
                 )}
               </div>

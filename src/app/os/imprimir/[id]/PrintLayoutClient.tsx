@@ -347,7 +347,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               <h4 className="text-[9px] print:text-[7px] font-black text-white print:text-black uppercase tracking-wider text-center leading-none">
                 Termos de Recebimento e Condições de Serviço
               </h4>
-              <div className="text-[7.5px] print:text-[5.5px] text-slate-400 print:text-black leading-tight text-justify whitespace-pre-line font-medium overflow-hidden">
+              <div className="text-[7.5px] print:text-[5.5px] text-slate-400 print:text-black leading-tight text-justify whitespace-pre-line font-medium">
                 {intakeTerms}
               </div>
             </div>
@@ -357,7 +357,7 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
               <h4 className="text-[9px] print:text-[7px] font-black text-white print:text-black uppercase tracking-wider text-center leading-none">
                 Termos de Garantia e Aceite de Retirada
               </h4>
-              <div className="text-[7.5px] print:text-[5.5px] text-slate-400 print:text-black leading-tight text-justify whitespace-pre-line font-medium overflow-hidden">
+              <div className="text-[7.5px] print:text-[5.5px] text-slate-400 print:text-black leading-tight text-justify whitespace-pre-line font-medium">
                 {deliveryTerms}
                 {(isDelivery || isFull) && os.warrantyPeriod > 0 && (
                   <span className="font-bold block mt-0.5">
@@ -746,19 +746,19 @@ export default function PrintLayoutClient({ os }: PrintLayoutClientProps) {
 
           {/* Termos de Entrada (Abertura ou Completo) */}
           {(docType === "abertura" || docType === "completo") && (
-            <div className="text-[7.5px] border-b border-dashed border-black pb-2 leading-normal space-y-1">
-              <div className="font-bold text-[8.5px] uppercase text-center">Termos de Recebimento e Condições de Serviço</div>
+            <div className="text-[9px] border-b border-dashed border-black pb-2 leading-normal space-y-1 text-black">
+              <div className="font-bold text-[10px] uppercase text-center">Termos de Recebimento e Condições de Serviço</div>
               <div className="text-justify whitespace-pre-line font-medium">{intakeTerms}</div>
             </div>
           )}
 
           {/* Termos de Garantia / Encerramento (Encerramento ou Completo) */}
           {(docType === "encerramento" || docType === "completo") && (
-            <div className="text-[7.5px] border-b border-dashed border-black pb-2 leading-normal space-y-1">
-              <div className="font-bold text-[8.5px] uppercase text-center">Termos de Garantia e Aceite de Retirada</div>
+            <div className="text-[9px] border-b border-dashed border-black pb-2 leading-normal space-y-1 text-black">
+              <div className="font-bold text-[10px] uppercase text-center">Termos de Garantia e Aceite de Retirada</div>
               
               {os.warrantyPeriod > 0 && (
-                <div className="bg-slate-100 p-1 rounded font-bold text-[8px] space-y-0.5 mb-1 text-black">
+                <div className="bg-slate-100 p-1 rounded font-bold text-[8.5px] space-y-0.5 mb-1 text-black">
                   <div>GARANTIA: {os.warrantyPeriod} DIAS</div>
                   {os.warrantyExpiresAt && <div>VALIDADE: {new Date(os.warrantyExpiresAt).toLocaleDateString("pt-BR")}</div>}
                   {os.warrantyTerms && <div>CONDIÇÕES ESPECÍFICAS: {os.warrantyTerms.toUpperCase()}</div>}

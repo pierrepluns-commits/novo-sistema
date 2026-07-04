@@ -207,7 +207,7 @@ export default async function OSPage({ searchParams }: PageProps) {
           <table className="w-full text-left text-sm">
             <thead className="bg-[#030712] border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="px-6 py-4">Nº O.S.</th>
+                <th className="px-6 py-4">Nº O.S. / Data</th>
                 <th className="px-6 py-4">Cliente</th>
                 <th className="px-6 py-4">Aparelho / Equipamento</th>
                 <th className="px-6 py-4">Status</th>
@@ -252,10 +252,14 @@ export default async function OSPage({ searchParams }: PageProps) {
 
                   return (
                     <tr key={os.id} className="hover:bg-slate-800/30 transition-colors group">
-                      <td className="px-6 py-4 align-middle">
-                        <Link href={`/os/editar/${os.id}`}>
+                      <td className="px-6 py-4 align-middle whitespace-nowrap">
+                        <Link href={`/os/editar/${os.id}`} className="flex flex-col gap-1 items-start">
                           <span className="font-mono font-bold text-white bg-[#111827] border border-slate-800 px-2.5 py-1.5 rounded-lg group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all shadow-inner">
                             #{String(os.osNumber).padStart(4, "0")}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1 font-sans mt-1">
+                            <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                            {new Date(os.createdAt).toLocaleDateString("pt-BR")}
                           </span>
                         </Link>
                       </td>
@@ -396,9 +400,13 @@ export default async function OSPage({ searchParams }: PageProps) {
               return (
                 <div key={os.id} className="p-4 space-y-3.5 hover:bg-slate-800/10 transition-colors">
                   <div className="flex justify-between items-start">
-                    <Link href={`/os/editar/${os.id}`}>
+                    <Link href={`/os/editar/${os.id}`} className="flex flex-col gap-1 items-start">
                       <span className="font-mono font-bold text-white bg-[#111827] border border-slate-800 px-2 py-1 rounded-lg text-xs hover:text-indigo-400 hover:border-indigo-500/30 transition-all shadow-inner">
                         #{String(os.osNumber).padStart(4, "0")}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1 font-sans mt-0.5">
+                        <Calendar className="w-3 h-3 text-indigo-400 shrink-0" />
+                        {new Date(os.createdAt).toLocaleDateString("pt-BR")}
                       </span>
                     </Link>
                     <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold border rounded-md ${badge.bg} ${badge.text} ${badge.border}`}>

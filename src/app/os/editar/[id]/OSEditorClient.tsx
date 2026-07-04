@@ -18,7 +18,9 @@ import {
   updateServiceOrderPartAction,
   reopenServiceOrderAction,
   deleteServiceOrderAction,
-  transferServiceOrderAction
+  transferServiceOrderAction,
+  addPartToServiceOrderAction,
+  removePartFromServiceOrderAction
 } from "../../../actions/os";
 import Link from "next/link";
 
@@ -265,6 +267,48 @@ export default function OSEditorClient({
   const [partCostInput, setPartCostInput] = useState(String(os.partsPrice || 0));
   const [accessoryCostInput, setAccessoryCostInput] = useState(initialChecklistObj.accessoryCost !== undefined ? String(initialChecklistObj.accessoryCost) : "0");
 
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedPartQty, setSelectedPartQty] = useState("1");
+
+  const handleAddInventoryPart = async () => {
+    if (!selectedProductId) return;
+    const part = availableParts.find(p => p.productId === selectedProductId);
+    if (!part) return;
+
+    setGlobalMessage(null);
+    startTransition(async () => {
+      const res = await addPartToServiceOrderAction(
+        os.id,
+        selectedProductId,
+        parseInt(selectedPartQty, 10) || 1,
+        part.price,
+        part.cost || 0
+      );
+
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+      } else {
+        setGlobalMessage({ text: "Peça do estoque adicionada com sucesso!", type: "success" });
+        setSelectedProductId("");
+        setSelectedPartQty("1");
+        router.refresh();
+      }
+    });
+  };
+
+  const handleRemoveInventoryPart = async (itemId: string) => {
+    setGlobalMessage(null);
+    startTransition(async () => {
+      const res = await removePartFromServiceOrderAction(itemId);
+      if (res.error) {
+        setGlobalMessage({ text: res.error, type: "error" });
+      } else {
+        setGlobalMessage({ text: "Peça removida da O.S.!", type: "success" });
+        router.refresh();
+      }
+    });
+  };
+
   const handleUpdatePart = async () => {
     setGlobalMessage(null);
     startTransition(async () => {
@@ -309,7 +353,8 @@ export default function OSEditorClient({
     ? Math.max(0, os.totalAmount - os.prepayment)
     : Math.max(0, finalTotalAmount - prepaymentNum);
 
-  const totalPartsCost = os.partsPrice || 0;
+  const inventoryPartsCost = os.items.reduce((sum, item) => sum + (item.quantity * (item.unitCost || 0)), 0);
+  const totalPartsCost = (os.partsPrice || 0) + inventoryPartsCost;
   const outsourcedCost = parseFloat(osCost) || 0;
   const accessoryCost = parseFloat(initialChecklistObj.accessoryCost) || 0;
   const consolidatedCost = totalPartsCost + outsourcedCost + accessoryCost + (os.status === "DELIVERED" ? (os.cardFee || 0) : 0);
@@ -947,95 +992,202 @@ export default function OSEditorClient({
         {/* Tab 3: Peça Aplicada & Custo */}
         {activeTab === "parts" && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Clipboard className="w-4 h-4 text-indigo-400" />
-              <span>Peça Aplicada & Custo de Aquisição</span>
-            </h3>
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
+                <Clipboard className="w-4 h-4 text-indigo-400" />
+                <span>Gerenciar Peças Aplicadas na Assistência</span>
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed mt-2">
+                Adicione peças do estoque do inventário para controle de CMV e baixa de produtos automática, ou lance uma peça avulsa rápida. Os custos das peças são deduzidos do faturamento no fechamento para calcular o lucro real da loja.
+              </p>
+            </div>
 
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Informe o nome da peça substituída e o respectivo preço de custo de aquisição. 
-              Este valor <strong>não é cobrado do cliente</strong> (pois já está embutido no valor da mão de obra), 
-              mas é <strong>debitado automaticamente do seu faturamento</strong> no fechamento do caixa para calcular o lucro líquido real.
-            </p>
+            {/* 1. SEÇÃO DE PEÇAS DE ESTOQUE (INVENTÁRIO) */}
+            <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-4">
+              <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                <Wrench className="w-4 h-4" />
+                <span>1. Peças do Estoque (Múltiplas Peças Cadastradas)</span>
+              </h4>
 
-            <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end font-bold text-white">
-              {/* Part Name */}
-              <div className="space-y-1.5 flex-[2] w-full">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Trocada</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Tela Frontal iPhone 11 OEM..."
-                  value={partNameInput}
-                  disabled={os.status === "DELIVERED"}
-                  onChange={(e) => setPartNameInput(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold text-white"
-                />
-              </div>
-
-              {/* Part Cost */}
-              <div className="space-y-1.5 flex-1 w-full">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo da Peça (R$)</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={partCostInput}
-                    disabled={os.status === "DELIVERED"}
-                    onChange={(e) => setPartCostInput(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Accessory Cost */}
-              <div className="space-y-1.5 flex-1 w-full">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Custo de Acessórios (R$)</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={accessoryCostInput}
-                    disabled={os.status === "DELIVERED"}
-                    onChange={(e) => setAccessoryCostInput(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Save Button */}
               {os.status !== "DELIVERED" && (
-                <Button
-                  onClick={handleUpdatePart}
-                  disabled={isPending}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-[42px] px-5 py-2.5 rounded-xl shrink-0 cursor-pointer active:scale-95 transition-all w-full md:w-auto"
-                  icon={Save}
-                >
-                  {isPending ? "Salvando..." : "Salvar Peça"}
-                </Button>
+                <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-end font-bold text-white max-w-3xl">
+                  {/* Select Product */}
+                  <div className="space-y-1.5 flex-[3] w-full">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Selecionar Peça do Estoque</label>
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    >
+                      <option value="">-- Selecione uma peça... --</option>
+                      {availableParts.map((part) => (
+                        <option key={part.productId} value={part.productId}>
+                          {part.name} (SKU: {part.sku}) - Qtd: {part.quantity} - Custo: R$ {(part.cost || 0).toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="space-y-1.5 flex-1 w-full">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Quantidade</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={selectedPartQty}
+                      onChange={(e) => setSelectedPartQty(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  {/* Add Button */}
+                  <Button
+                    onClick={handleAddInventoryPart}
+                    disabled={isPending || !selectedProductId}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-[42px] px-5 py-2.5 rounded-xl shrink-0 cursor-pointer active:scale-95 transition-all w-full md:w-auto"
+                    icon={Plus}
+                  >
+                    Adicionar Peça
+                  </Button>
+                </div>
               )}
+
+              {/* Applied Inventory Parts List */}
+              <div className="border-t border-slate-800/60 pt-4 mt-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Peças do Estoque Aplicadas nesta O.S.</span>
+                {os.items.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic">Nenhuma peça do estoque cadastrada adicionada.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-[10px] text-slate-500 font-bold uppercase pb-1">
+                          <th className="pb-2">Produto / Peça</th>
+                          <th className="pb-2">SKU</th>
+                          <th className="pb-2 text-center">Quantidade</th>
+                          <th className="pb-2 text-right">Custo Unitário</th>
+                          <th className="pb-2 text-right">Custo Total</th>
+                          {os.status !== "DELIVERED" && <th className="pb-2 text-right">Ação</th>}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-850/60">
+                        {os.items.map((item) => (
+                          <tr key={item.id} className="text-slate-300">
+                            <td className="py-2.5 font-bold text-white">{item.product.name}</td>
+                            <td className="py-2.5 font-mono">{item.product.sku}</td>
+                            <td className="py-2.5 text-center font-bold">{item.quantity}</td>
+                            <td className="py-2.5 text-right font-mono">R$ {item.unitCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                            <td className="py-2.5 text-right font-mono font-bold text-white">R$ {(item.quantity * item.unitCost).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                            {os.status !== "DELIVERED" && (
+                              <td className="py-2.5 text-right">
+                                <button
+                                  onClick={() => handleRemoveInventoryPart(item.id)}
+                                  disabled={isPending}
+                                  className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-95 cursor-pointer font-bold"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. SEÇÃO DE LANÇAMENTO RÁPIDO DE PEÇA AVULSA */}
+            <div className="bg-[#0c1322] border border-slate-800 rounded-2xl p-6 space-y-4">
+              <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                <Clipboard className="w-4 h-4" />
+                <span>2. Peça Avulsa Adicional (Sem Cadastro / Rápido)</span>
+              </h4>
+
+              <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col md:flex-row gap-4 items-stretch md:items-end font-bold text-white">
+                {/* Part Name */}
+                <div className="space-y-1.5 flex-[2] w-full">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Nome da Peça Trocada</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Tela Frontal iPhone 11 OEM..."
+                    value={partNameInput}
+                    disabled={os.status === "DELIVERED"}
+                    onChange={(e) => setPartNameInput(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-bold text-white"
+                  />
+                </div>
+
+                {/* Part Cost */}
+                <div className="space-y-1.5 flex-1 w-full">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Preço de Custo da Peça (R$)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={partCostInput}
+                      disabled={os.status === "DELIVERED"}
+                      onChange={(e) => setPartCostInput(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Accessory Cost */}
+                <div className="space-y-1.5 flex-1 w-full">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Custo de Acessórios (R$)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">R$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={accessoryCostInput}
+                      disabled={os.status === "DELIVERED"}
+                      onChange={(e) => setAccessoryCostInput(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono font-bold text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                {os.status !== "DELIVERED" && (
+                  <Button
+                    onClick={handleUpdatePart}
+                    disabled={isPending}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold h-[42px] px-5 py-2.5 rounded-xl shrink-0 cursor-pointer active:scale-95 transition-all w-full md:w-auto"
+                    icon={Save}
+                  >
+                    {isPending ? "Salvando..." : "Salvar Peça Avulsa"}
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Visual Feedback Box */}
-            <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-2 text-xs">
-              <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Informações Atuais da O.S.</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-2 text-xs font-bold">
+              <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Resumo Consolidado de Custos (CMV total O.S.)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <span className="text-slate-400">Peça Registrada: </span>
-                  <span className="font-semibold text-white">{initialChecklistObj.partName ? initialChecklistObj.partName : "Nenhuma registrada"}</span>
+                  <span className="text-slate-400">Custo Total de Peças do Estoque: </span>
+                  <span className="font-mono font-bold text-white block">R$ {inventoryPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400">Custo da Peça: </span>
-                  <span className="font-mono font-bold text-amber-500">R$ {(os.partsPrice || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  <span className="text-slate-400">Custo de Peça Avulsa Rápida: </span>
+                  <span className="font-mono font-bold text-white block">R$ {(os.partsPrice || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div>
                   <span className="text-slate-400">Custo de Acessórios: </span>
-                  <span className="font-mono font-bold text-amber-500">R$ {(parseFloat(initialChecklistObj.accessoryCost) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  <span className="font-mono font-bold text-white block">R$ {(parseFloat(initialChecklistObj.accessoryCost) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="border-l border-slate-800/80 pl-4 font-extrabold text-indigo-400">
+                  <span>CUSTO TOTAL (CMV): </span>
+                  <span className="font-mono text-sm block text-indigo-300">R$ {totalPartsCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>

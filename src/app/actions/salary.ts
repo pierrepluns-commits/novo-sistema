@@ -160,7 +160,8 @@ export async function calculateSalaryPayrollAction(
 
     const formattedValesList = valesList.map(v => ({
       id: v.id,
-      date: new Date(v.transactionDate).toLocaleDateString("pt-BR"),
+      date: new Date(v.transactionDate).toISOString().split("T")[0], // ISO for inputs
+      dateStr: new Date(v.transactionDate).toLocaleDateString("pt-BR"), // user friendly
       description: v.description.replace(/^VALE:\s*/i, ""),
       amount: v.amount,
       unitName: v.unit.name
@@ -220,5 +221,70 @@ export async function createSalaryValeAction(
     return { success: true };
   } catch (error: any) {
     return { error: "Erro ao registrar vale: " + error.message };
+  }
+}
+
+export async function updateSalaryValeAction(
+  valeId: string,
+  amount: number,
+  description: string,
+  dateStr: string
+) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  if (amount <= 0) return { error: "O valor do vale deve ser maior que zero." };
+  if (!description.trim()) return { error: "O motivo do vale é obrigatório." };
+
+  try {
+    const transaction = await prisma.financialTransaction.findFirst({
+      where: { id: valeId, companyId: session.companyId }
+    });
+
+    if (!transaction) {
+      return { error: "Vale não encontrado." };
+    }
+
+    await prisma.financialTransaction.update({
+      where: { id: valeId },
+      data: {
+        amount,
+        description: `VALE: ${description.trim()}`,
+        transactionDate: new Date(dateStr)
+      }
+    });
+
+    revalidatePath("/financeiro");
+    return { success: true };
+  } catch (error: any) {
+    return { error: "Erro ao editar vale: " + error.message };
+  }
+}
+
+export async function deleteSalaryValeAction(valeId: string) {
+  const session = await getSession();
+  if (!session || !session.companyId) {
+    return { error: "Sessão inválida ou expirada." };
+  }
+
+  try {
+    const transaction = await prisma.financialTransaction.findFirst({
+      where: { id: valeId, companyId: session.companyId }
+    });
+
+    if (!transaction) {
+      return { error: "Vale não encontrado." };
+    }
+
+    await prisma.financialTransaction.delete({
+      where: { id: valeId }
+    });
+
+    revalidatePath("/financeiro");
+    return { success: true };
+  } catch (error: any) {
+    return { error: "Erro ao excluir vale: " + error.message };
   }
 }

@@ -6,9 +6,14 @@ import { Button } from "@/components/ui/Button";
 import { 
   Coins, Calendar, DollarSign, Users, Loader2, 
   Wrench, ShoppingCart, Percent, AlertCircle, FileText, Printer,
-  MinusCircle, Plus, Building, Info, Save
+  MinusCircle, Plus, Building, Info, Save, Edit2, Trash2, XCircle
 } from "lucide-react";
-import { calculateSalaryPayrollAction, createSalaryValeAction } from "@/app/actions/salary";
+import { 
+  calculateSalaryPayrollAction, 
+  createSalaryValeAction,
+  updateSalaryValeAction,
+  deleteSalaryValeAction
+} from "@/app/actions/salary";
 import toast from "react-hot-toast";
 
 interface Employee {
@@ -41,12 +46,13 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
   const [daysWorked, setDaysWorked] = useState("0");
   const [dailyRateVal, setDailyRateVal] = useState("0");
 
-  // New Vale form states
+  // New/Edit Vale form states
   const [valeAmount, setValeAmount] = useState("");
   const [valeDescription, setValeDescription] = useState("");
   const [valeDate, setValeDate] = useState(() => {
     return new Date().toISOString().split("T")[0];
   });
+  const [editingValeId, setEditingValeId] = useState<string | null>(null);
   const [savingVale, setSavingVale] = useState(false);
 
   // Calculation results
@@ -56,7 +62,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
     totalOSCommissions: number;
     salesList: Array<{ id: string; date: string; productName: string; quantity: number; unitPrice: number; grossValue: number; commission: number; unitName: string }>;
     totalAccessoryCommissions: number;
-    valesList: Array<{ id: string; date: string; description: string; amount: number; unitName: string }>;
+    valesList: Array<{ id: string; date: string; dateStr: string; description: string; amount: number; unitName: string }>;
     totalVales: number;
   } | null>(null);
 
@@ -134,13 +140,20 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
 
     setSavingVale(true);
     try {
-      const res = await createSalaryValeAction(selectedUserId, val, valeDescription, valeDate);
+      let res;
+      if (editingValeId) {
+        res = await updateSalaryValeAction(editingValeId, val, valeDescription, valeDate);
+      } else {
+        res = await createSalaryValeAction(selectedUserId, val, valeDescription, valeDate);
+      }
+
       if (res.error) {
         toast.error(res.error);
       } else {
-        toast.success("Vale registrado no caixa com sucesso!");
+        toast.success(editingValeId ? "Vale editado com sucesso!" : "Vale registrado com sucesso!");
         setValeAmount("");
         setValeDescription("");
+        setEditingValeId(null);
         // Refresh calculations automatically
         const refresh = await calculateSalaryPayrollAction(selectedUserId, startDate, endDate, unitFilter);
         if (!refresh.error) {
@@ -152,6 +165,40 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
     } finally {
       setSavingVale(false);
     }
+  };
+
+  const handleStartEditVale = (vale: any) => {
+    setEditingValeId(vale.id);
+    setValeAmount(String(vale.amount));
+    setValeDescription(vale.description);
+    setValeDate(vale.date);
+  };
+
+  const handleCancelEditVale = () => {
+    setEditingValeId(null);
+    setValeAmount("");
+    setValeDescription("");
+    setValeDate(new Date().toISOString().split("T")[0]);
+  };
+
+  const handleDeleteVale = async (valeId: string) => {
+    if (!confirm("Tem certeza de que deseja excluir este vale? O lançamento correspondente será removido das movimentações.")) {
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await deleteSalaryValeAction(valeId);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("Vale excluído com sucesso!");
+        // Refresh calculations automatically
+        const refresh = await calculateSalaryPayrollAction(selectedUserId, startDate, endDate, unitFilter);
+        if (!refresh.error) {
+          setPayrollData(refresh as any);
+        }
+      }
+    });
   };
 
   const handlePrintReport = () => {
@@ -350,8 +397,8 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
         <div className="bg-[#090e1a] border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
           <form onSubmit={handleSaveVale} className="space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
-              <MinusCircle className="w-4 h-4 text-rose-500" />
-              <span>Lançar Novo Vale (Adiantamento)</span>
+              <MinusCircle className={`w-4 h-4 ${editingValeId ? "text-amber-500" : "text-rose-500"}`} />
+              <span>{editingValeId ? "Editar Vale (Adiantamento)" : "Lançar Novo Vale (Adiantamento)"}</span>
             </h3>
 
             {/* Vale Amount */}
@@ -397,14 +444,26 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
               />
             </div>
 
-            <Button
-              type="submit"
-              disabled={savingVale || !selectedUserId}
-              className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold"
-              icon={Plus}
-            >
-              {savingVale ? "Salvando vale..." : "Confirmar Lançamento de Vale"}
-            </Button>
+            <div className="flex gap-2">
+              {editingValeId && (
+                <Button
+                  type="button"
+                  onClick={handleCancelEditVale}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold"
+                  icon={XCircle}
+                >
+                  Cancelar
+                </Button>
+              )}
+              <Button
+                type="submit"
+                disabled={savingVale || !selectedUserId}
+                className={`flex-[2] text-white font-bold ${editingValeId ? "bg-amber-600 hover:bg-amber-500" : "bg-rose-600 hover:bg-rose-500"}`}
+                icon={editingValeId ? Save : Plus}
+              >
+                {savingVale ? "Salvando..." : editingValeId ? "Salvar Alterações" : "Confirmar Lançamento"}
+              </Button>
+            </div>
           </form>
         </div>
       </div>
@@ -546,7 +605,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
                       <th className="px-4 py-2 text-right">Valor Comissão</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-850/60 print:divide-black">
+                  <tbody className="divide-y divide-slate-855/60 print:divide-black">
                     {zionixOSList.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="px-4 py-4 text-center text-slate-500 italic">Nenhum serviço faturado na Zionix.</td>
@@ -704,7 +763,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
             )}
           </div>
 
-          {/* SECTION 4: List of Vales */}
+          {/* SECTION 4: List of Vales (With Edit and Delete buttons on screen) */}
           {payrollData.valesList.length > 0 && (
             <div className="bg-[#090e1a] border border-slate-800/80 rounded-xl overflow-hidden print-card">
               <h4 className="px-5 py-2.5 bg-[#030712] border-b border-slate-800 text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 print-title">
@@ -719,16 +778,33 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
                       <th className="px-4 py-2">Data Lançamento</th>
                       <th className="px-4 py-2">Descrição do Vale</th>
                       <th className="px-4 py-2 text-right">Valor Deduzido</th>
+                      <th className="px-4 py-2 text-right print-hidden">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-850/60 print:divide-black font-medium">
                     {payrollData.valesList.map((v) => (
                       <tr key={v.id} className="hover:bg-slate-800/10 text-slate-300 print:text-black">
                         <td className="px-4 py-2">{v.unitName}</td>
-                        <td className="px-4 py-2">{v.date}</td>
+                        <td className="px-4 py-2">{v.dateStr}</td>
                         <td className="px-4 py-2 text-white print:text-black font-semibold">{v.description}</td>
                         <td className="px-4 py-2 text-right font-mono font-bold text-rose-400 print:text-black">
                           - R$ {v.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-2 text-right print-hidden space-x-1.5">
+                          <button
+                            onClick={() => handleStartEditVale(v)}
+                            className="p-1 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all active:scale-90"
+                            title="Editar Vale"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteVale(v.id)}
+                            className="p-1 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-90"
+                            title="Excluir Vale"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -737,6 +813,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
                       <td className="px-4 py-2 text-right font-mono text-rose-400 print:text-black font-black">
                         - R$ {totalVales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </td>
+                      <td className="print-hidden"></td>
                     </tr>
                   </tbody>
                 </table>
@@ -753,7 +830,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
 
             <div className="space-y-2 text-xs font-semibold text-slate-300 print:text-black">
               {/* Daily rates info */}
-              <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+              <div className="flex justify-between items-center py-1 border-b border-slate-855 print:border-slate-300">
                 <span className="text-slate-400 print:text-black font-bold">Valor das Diárias da Quinzena ({daysWorkedNum} dias):</span>
                 <span className="font-mono text-white print:text-black font-extrabold">R$ {totalDailyRatePay.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
               </div>
@@ -765,7 +842,7 @@ export default function SalariosPageClient({ employees }: SalariosPageClientProp
               </div>
 
               {/* OS Zionix Services */}
-              <div className="flex justify-between items-center py-1 border-b border-slate-850 print:border-slate-300">
+              <div className="flex justify-between items-center py-1 border-b border-slate-855 print:border-slate-300">
                 <span className="text-slate-400 print:text-black">Comissão de Serviços (Zionix):</span>
                 <span className="font-mono text-white print:text-black">R$ {totalZionixOS.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
               </div>

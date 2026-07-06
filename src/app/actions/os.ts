@@ -627,6 +627,7 @@ export async function finishAndBillServiceOrderAction(
               quantity: item.quantity,
               reason: "SALE", // Venda/Uso em assistência
               referenceId: os.id,
+              createdAt: transactionDate,
             },
           });
         }
@@ -822,6 +823,7 @@ export async function finishAndBillServiceOrderAction(
           totalAmount,
           servicePrice: baseLaborPrice,
           checklist: JSON.stringify(checklistObj),
+          deliveredAt: transactionDate,
         },
       });
     });
@@ -1064,6 +1066,7 @@ export async function reopenServiceOrderAction(osId: string) {
           servicePrice: originalCashPrice,
           totalAmount: originalCashPrice - os.discount,
           checklist: JSON.stringify(checklistObj),
+          deliveredAt: null,
         },
       });
     });

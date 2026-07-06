@@ -45,7 +45,7 @@ export async function calculateSalaryPayrollAction(
         companyId: session.companyId,
         ...unitCondition,
         status: "DELIVERED",
-        updatedAt: {
+        deliveredAt: {
           gte: start,
           lte: end
         }

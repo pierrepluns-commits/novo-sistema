@@ -315,6 +315,8 @@ model ServiceOrder {
   warrantyTerms     String?
   warrantyStatus    String    @default("ACTIVE") // ACTIVE, EXPIRED, VOIDED
   
+  deliveredAt       DateTime?
+  
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

@@ -210,7 +210,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       where: {
         ...baseWhere,
         status: "DELIVERED",
-        updatedAt: { gte: start, lte: end }
+        deliveredAt: { gte: start, lte: end }
       },
       include: {
         client: true,
@@ -223,7 +223,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       where: {
         ...baseWhere,
         status: "DELIVERED",
-        updatedAt: { gte: startA, lte: endA }
+        deliveredAt: { gte: startA, lte: endA }
       },
       include: { items: true }
     }),
@@ -232,7 +232,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       where: {
         ...baseWhere,
         status: "DELIVERED",
-        updatedAt: { gte: startB, lte: endB }
+        deliveredAt: { gte: startB, lte: endB }
       },
       include: { items: true }
     }),

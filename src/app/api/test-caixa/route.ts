@@ -64,13 +64,15 @@ export async function GET() {
       success: true,
       registerId: register.id,
       salesCount: sales.length,
-      serviceOrdersCount: serviceOrders.length
+      serviceOrdersCount: serviceOrders.length,
+      dbUrl: process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).hostname : "not set"
     });
   } catch (e: any) {
     return NextResponse.json({
       success: false,
       error: e.message || e,
-      stack: e.stack
+      stack: e.stack,
+      dbUrl: process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).hostname : "not set"
     });
   }
 }

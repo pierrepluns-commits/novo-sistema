@@ -51,6 +51,9 @@ export async function GET(request: Request) {
             }
           }
         });
+      }, {
+        maxWait: 15000,
+        timeout: 60000
       });
 
       return NextResponse.json({

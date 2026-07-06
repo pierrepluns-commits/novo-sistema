@@ -104,9 +104,7 @@ export default async function Estoque() {
             </Button>
           </Link>
           {canManage && (
-            <div className="flex-1 sm:flex-initial">
-              <EstoqueClientWrapper units={units} />
-            </div>
+            <EstoqueClientWrapper units={units} />
           )}
           {canManage && (
             <Link href="/estoque/novo" className="flex-1 sm:flex-initial">

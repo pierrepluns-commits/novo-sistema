@@ -246,6 +246,12 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
 
           <div className="flex items-center gap-4">
             <Link 
+              href="/mestre/login" 
+              className="text-sm font-semibold text-slate-400 hover:text-slate-200 transition-colors py-2 px-4 rounded-xl hover:bg-white/5"
+            >
+              Painel Mestre
+            </Link>
+            <Link 
               href="/login" 
               className="text-sm font-bold text-slate-300 hover:text-white transition-colors py-2 px-4 rounded-xl hover:bg-white/5"
             >

@@ -78,7 +78,7 @@ export async function calculateSalaryPayrollAction(
       } catch {
         checklistObj = {};
       }
-      const date = checklistObj.billingDate ? new Date(checklistObj.billingDate) : os.updatedAt;
+      const date = checklistObj.billingDate ? new Date(checklistObj.billingDate) : (os.deliveredAt || os.updatedAt);
       return {
         id: os.id,
         osNumber: os.osNumber,

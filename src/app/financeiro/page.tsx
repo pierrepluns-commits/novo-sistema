@@ -728,7 +728,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
       servicePrice: servicePriceVal,
       totalAmount: os.totalAmount,
       commission: commissionVal,
-      date: os.updatedAt,
+      date: os.deliveredAt || os.updatedAt,
       status: os.status,
     });
   }

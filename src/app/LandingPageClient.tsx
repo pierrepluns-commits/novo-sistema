@@ -41,6 +41,9 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
   // Interactive Plan Switcher State
   const [isAnnual, setIsAnnual] = useState(false);
 
+  // State for pricing calculator slider
+  const [calculatorStores, setCalculatorStores] = useState(2);
+
   // FAQ Accordion State
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
@@ -445,6 +448,63 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
         </div>
       </section>
 
+      {/* Interactive Onboarding walkthrough */}
+      <section className="py-20 bg-[#030712] relative border-t border-white/5 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <span style={{ color: primaryColor }} className="text-xs font-black uppercase tracking-wider">Como Iniciar</span>
+            <h2 className="text-3xl md:text-5xl font-black text-white mt-2 mb-4">Ativação Prática em 4 Passos</h2>
+            <p className="text-slate-400 text-sm max-w-lg mx-auto font-medium">Sua empresa funcionando em menos de 5 minutos, de forma automatizada e prática.</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
+            {/* Step 1 */}
+            <div className="bg-[#0c1225] border border-white/5 p-6 rounded-3xl relative group hover:border-white/10 transition-all shadow-md">
+              <div className="absolute -top-5 left-6 w-10 h-10 rounded-xl bg-blue-500 text-white font-black text-sm flex items-center justify-center shadow-lg shadow-blue-500/20">
+                1
+              </div>
+              <h3 className="text-lg font-bold text-white mt-2 mb-3">Escolha o Plano</h3>
+              <p className="text-xs text-slate-450 leading-relaxed font-medium">
+                Selecione a licença adequada para o tamanho da sua rede comercial (Básico, Pro ou Enterprise) clicando nos botões de planos.
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-[#0c1225] border border-white/5 p-6 rounded-3xl relative group hover:border-white/10 transition-all shadow-md">
+              <div className="absolute -top-5 left-6 w-10 h-10 rounded-xl bg-cyan-500 text-white font-black text-sm flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                2
+              </div>
+              <h3 className="text-lg font-bold text-white mt-2 mb-3">Preencha o Cadastro</h3>
+              <p className="text-xs text-slate-450 leading-relaxed font-medium">
+                Insira o nome da sua empresa, e-mail do proprietário e selecione o plano para configurar suas quotas iniciais.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-[#0c1225] border border-white/5 p-6 rounded-3xl relative group hover:border-white/10 transition-all shadow-md">
+              <div className="absolute -top-5 left-6 w-10 h-10 rounded-xl bg-purple-500 text-white font-black text-sm flex items-center justify-center shadow-lg shadow-purple-500/20">
+                3
+              </div>
+              <h3 className="text-lg font-bold text-white mt-2 mb-3">Pagamento Simulado</h3>
+              <p className="text-xs text-slate-450 leading-relaxed font-medium">
+                Efetue o pagamento simulado através de PIX dinâmico (com aprovação instantânea pelo botão de webhook) ou Cartão de Crédito.
+              </p>
+            </div>
+
+            {/* Step 4 */}
+            <div className="bg-[#0c1225] border border-white/5 p-6 rounded-3xl relative group hover:border-white/10 transition-all shadow-md">
+              <div className="absolute -top-5 left-6 w-10 h-10 rounded-xl bg-emerald-500 text-white font-black text-sm flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                4
+              </div>
+              <h3 className="text-lg font-bold text-white mt-2 mb-3">Acesso Liberado</h3>
+              <p className="text-xs text-slate-450 leading-relaxed font-medium">
+                Sua senha provisória de acesso administrador é gerada e exibida na tela. Copie e acesse imediatamente o painel do sistema!
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Plans Section */}
       <section id="planos" className="py-28 relative overflow-hidden border-t border-white/5">
         <div 
@@ -570,6 +630,160 @@ export function LandingPageClient({ systemConfig }: LandingPageClientProps) {
                 </div>
               );
             })}
+          </div>
+
+          {/* Interactive Pricing Calculator */}
+          <div className="mt-20 max-w-3xl mx-auto bg-[#0c1225] border border-white/5 rounded-3xl p-6 md:p-8 shadow-xl space-y-6 relative">
+            <div className="absolute top-0 right-0 w-36 h-36 opacity-10 bg-cyan-400 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div className="text-center md:text-left">
+              <span style={{ color: primaryColor }} className="text-[10px] font-black tracking-widest uppercase block font-mono">Calculadora de Licença</span>
+              <h3 className="text-2xl font-bold text-white mt-1">Quantas lojas você pretende gerenciar?</h3>
+              <p className="text-slate-400 text-xs mt-1">Arraste a barra para encontrar o plano recomendado e o custo total do seu ecossistema.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-[#050914] p-4 rounded-xl border border-slate-800">
+                <span className="text-xs font-bold text-slate-450 uppercase">Quantidade de Lojas:</span>
+                <span className="text-3xl font-black text-cyan-455 font-mono">{calculatorStores} {calculatorStores === 1 ? "Loja" : "Lojas"}</span>
+              </div>
+
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={calculatorStores}
+                onChange={(e) => setCalculatorStores(parseInt(e.target.value))}
+                style={{ accentColor: primaryColor }}
+                className="w-full h-2 rounded-lg bg-slate-800 cursor-pointer"
+              />
+
+              {/* Calculator Results Card */}
+              {(() => {
+                let recPlanId = "BASIC";
+                let recPlanName = "Básico";
+                let recPlanPrice = 49.90;
+                let recPlanQuota = "1 Loja";
+                
+                if (calculatorStores > 1 && calculatorStores <= 5) {
+                  recPlanId = "PRO";
+                  recPlanName = "Pro";
+                  recPlanPrice = 99.90;
+                  recPlanQuota = "Até 5 Lojas";
+                } else if (calculatorStores > 5) {
+                  recPlanId = "ENTERPRISE";
+                  recPlanName = "Enterprise";
+                  recPlanPrice = 199.90;
+                  recPlanQuota = "Lojas Ilimitadas";
+                }
+
+                const calculatedPrice = isAnnual ? recPlanPrice * 0.8 : recPlanPrice;
+
+                return (
+                  <div className="grid md:grid-cols-2 gap-6 bg-[#050914] p-5 rounded-2xl border border-slate-800/80 items-center">
+                    <div className="space-y-2">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">Plano Recomendado:</span>
+                      <h4 className="text-xl font-extrabold text-white flex items-center gap-2">
+                        {recPlanName}
+                        <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 font-black text-[9px] uppercase tracking-wider">Ideal</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Sua quota de {calculatorStores} {calculatorStores === 1 ? "loja" : "lojas"} é atendida pelo plano {recPlanName} ({recPlanQuota}).
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row md:flex-col items-stretch md:items-end justify-between md:justify-center gap-4 text-left md:text-right">
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase block">Custo Estimado:</span>
+                        <div className="flex items-baseline md:justify-end">
+                          <span className="text-xs font-bold text-slate-450 mr-1.5 font-mono">R$</span>
+                          <span className="text-3xl font-black text-emerald-400 font-mono">{calculatedPrice.toFixed(2)}</span>
+                          <span className="text-slate-505 text-xs font-bold ml-1.5"> /mês</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleOpenSignup(recPlanId)}
+                        style={{ 
+                          backgroundColor: primaryColor,
+                          boxShadow: `0 0 20px rgba(${primaryRGB}, 0.3)`
+                        }}
+                        className="py-3.5 px-8 text-white font-black rounded-xl text-xs hover:scale-102 active:scale-98 transition-all hover:brightness-110 cursor-pointer shadow-md"
+                      >
+                        Contratar Plano {recPlanName}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Features Comparison Matrix */}
+          <div className="mt-20 space-y-6">
+            <div className="text-center">
+              <span style={{ color: primaryColor }} className="text-xs font-black uppercase tracking-wider">Comparativo Técnico</span>
+              <h3 className="text-2xl md:text-3xl font-black text-white mt-2">Matriz de Recursos dos Planos</h3>
+              <p className="text-slate-400 text-xs max-w-md mx-auto mt-1">Compare detalhadamente o que cada nível de licença oferece ao seu negócio.</p>
+            </div>
+
+            <div className="bg-[#0c1225] border border-white/5 rounded-3xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-white/5 bg-[#050914] text-xs font-bold text-slate-400">
+                      <th className="p-5 font-bold uppercase">Recurso / Capacidade</th>
+                      <th className="p-5 font-bold uppercase text-center">Básico</th>
+                      <th className="p-5 font-bold uppercase text-center text-cyan-400">Pro</th>
+                      <th className="p-5 font-bold uppercase text-center">Enterprise</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-xs font-medium text-slate-350">
+                    <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5 font-bold text-white">Quota de Lojas / Filiais</td>
+                      <td className="p-5 text-center font-bold text-slate-300">1 Loja</td>
+                      <td className="p-5 text-center font-bold text-cyan-400">Até 5 Lojas</td>
+                      <td className="p-5 text-center font-bold text-emerald-400">Lojas Ilimitadas</td>
+                    </tr>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5 font-bold text-white">Frente de Caixa PDV Rápido</td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                    </tr>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5 font-bold text-white">Gestão Financeira & Caixa</td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                    </tr>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5 font-bold text-white">Emissão de Recibos de Venda/O.S.</td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                    </tr>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5 font-bold text-white">Lançamentos de Caixa Retroativos</td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                    </tr>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5 font-bold text-white">Gerenciador de Acesso Mestre SaaS</td>
+                      <td className="p-5 text-center text-slate-650 font-bold">—</td>
+                      <td className="p-5 text-center text-slate-650 font-bold">—</td>
+                      <td className="p-5 text-center"><CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto" /></td>
+                    </tr>
+                    <tr className="hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5 font-bold text-white">Suporte Técnico Integrado</td>
+                      <td className="p-5 text-center text-slate-300">Via Chat</td>
+                      <td className="p-5 text-center text-cyan-400 font-bold">Prioritário WhatsApp</td>
+                      <td className="p-5 text-center text-emerald-400 font-bold">Consultor Dedicado</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           {/* Core comparison list banner */}

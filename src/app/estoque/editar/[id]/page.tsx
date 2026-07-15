@@ -14,7 +14,8 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
   const productToEdit = await prisma.product.findUnique({
     where: { id: resolvedParams.id },
     include: {
-      kitItems: true
+      kitItems: true,
+      stocks: true
     }
   });
 
@@ -22,10 +23,9 @@ export default async function EditarProdutoPage({ params }: { params: Promise<{ 
     redirect("/estoque");
   }
 
-  // Units only matter for initial creation, but we pass it anyway
-  const units = !session.unitId ? await prisma.unit.findMany({
+  const units = await prisma.unit.findMany({
     where: { companyId: session.companyId }
-  }) : [];
+  });
 
   const allProducts = await prisma.product.findMany({
     where: { 

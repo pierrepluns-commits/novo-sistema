@@ -64,7 +64,12 @@ export async function createSale(
     throw new Error("CAIXA_DIA_ANTERIOR_ABERTO");
   }
 
-  const saleDate = customDate ? new Date(customDate) : new Date();
+  let saleDate = new Date();
+  if (customDate) {
+    const hasTimezone = customDate.includes("Z") || /[-+]\d{2}:\d{2}$/.test(customDate);
+    const dateString = hasTimezone ? customDate : `${customDate}:00-03:00`;
+    saleDate = new Date(dateString);
+  }
 
   const sale = await prisma.$transaction(async (tx) => {
     // 1. Create Sale
@@ -425,7 +430,12 @@ export async function updateSaleDetails(
     if (sale.status === "CANCELLED") throw new Error("Venda cancelada não pode ser editada");
 
     // 1. Update the sale record
-    const newSaleDate = customDate ? new Date(customDate) : undefined;
+    let newSaleDate = undefined;
+    if (customDate) {
+      const hasTimezone = customDate.includes("Z") || /[-+]\d{2}:\d{2}$/.test(customDate);
+      const dateString = hasTimezone ? customDate : `${customDate}:00-03:00`;
+      newSaleDate = new Date(dateString);
+    }
 
     const updatedSale = await tx.sale.update({
       where: { id: saleId },

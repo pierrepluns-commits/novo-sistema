@@ -529,8 +529,13 @@ export async function finishAndBillServiceOrderAction(
     if (!os) return { error: "O.S. não encontrada." };
     if (os.status === "DELIVERED") return { error: "Esta O.S. já foi entregue e faturada." };
 
-    // Parse custom date if provided, otherwise default to current date
-    const transactionDate = customDate ? new Date(customDate) : new Date();
+    // Parse custom date if provided (appending local timezone -03:00 if no offset is specified), otherwise default to current date
+    let transactionDate = new Date();
+    if (customDate) {
+      const hasTimezone = customDate.includes("Z") || /[-+]\d{2}:\d{2}$/.test(customDate);
+      const dateString = hasTimezone ? customDate : `${customDate}:00-03:00`;
+      transactionDate = new Date(dateString);
+    }
 
     // Get cardServicePrice & accessoryCost from checklist
     let checklistObj: Record<string, any> = {};

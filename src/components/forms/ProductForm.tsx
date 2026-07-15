@@ -188,6 +188,43 @@ export function ProductForm({ units, sessionUnitId, initialData, allProducts = [
         </div>
       </div>
 
+      {initialData && !isKit && (
+        <div className="border border-slate-800 rounded-xl p-4 bg-[#0a0f1c] space-y-4">
+          <h4 className="text-white font-bold text-sm">Quantidade em Estoque por Unidade</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {sessionUnitId ? (
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">
+                  Quantidade ({units.find((u: any) => u.id === sessionUnitId)?.name || "Unidade Atual"})
+                </label>
+                <input 
+                  type="number" 
+                  name={`stockQuantity_${sessionUnitId}`}
+                  defaultValue={initialData?.stocks?.find((s: any) => s.unitId === sessionUnitId)?.quantity ?? 0}
+                  required 
+                  className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-[#0f172a] text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            ) : (
+              units.map((u: any) => (
+                <div key={u.id}>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    Estoque: {u.name}
+                  </label>
+                  <input 
+                    type="number" 
+                    name={`stockQuantity_${u.id}`}
+                    defaultValue={initialData?.stocks?.find((s: any) => s.unitId === u.id)?.quantity ?? 0}
+                    required 
+                    className="w-full px-3 py-2 border border-slate-700 rounded-lg bg-[#0f172a] text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="pt-2 flex items-center gap-2">
         <input 
           type="checkbox" 

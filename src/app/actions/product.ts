@@ -181,10 +181,32 @@ export async function updateProduct(formData: FormData) {
           });
         }
       }
-    } else {
-      await prisma.productBundle.deleteMany({
-        where: { kitId: id }
-      });
+    }
+
+    // Update stock quantities for each unit from the form fields
+    if (!isKit) {
+      const stockEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith("stockQuantity_"));
+      for (const [key, val] of stockEntries) {
+        const unitId = key.replace("stockQuantity_", "");
+        const quantity = parseInt(val as string) || 0;
+
+        await prisma.stock.upsert({
+          where: {
+            productId_unitId: {
+              productId: id,
+              unitId,
+            }
+          },
+          create: {
+            productId: id,
+            unitId,
+            quantity,
+          },
+          update: {
+            quantity,
+          }
+        });
+      }
     }
 
     revalidatePath("/estoque");

@@ -161,6 +161,11 @@ export default function PDVPage() {
     setCart(prev => prev.map(item => item.id === id ? { ...item, cartQuantity: qty } : item));
   };
 
+  const updateCartPrice = (id: string, price: number) => {
+    if (price < 0) return;
+    setCart(prev => prev.map(item => item.id === id ? { ...item, price } : item));
+  };
+
   const total = cart.reduce((acc, item) => acc + (item.isFreebie ? 0 : item.price * item.cartQuantity), 0);
 
   const handleOpenPayment = () => {
@@ -349,7 +354,21 @@ export default function PDVPage() {
                         {item.isFreebie ? (
                            <span className="text-green-500 font-bold">BRINDE (R$ 0,00)</span>
                         ) : (
-                           <span>R$ {item.price.toFixed(2)} un</span>
+                           <div className="flex items-center gap-1">
+                             <span className="text-slate-450 font-medium">R$</span>
+                             <input 
+                               type="number"
+                               step="0.01"
+                               min="0"
+                               value={item.price}
+                               onChange={(e) => {
+                                 const val = parseFloat(e.target.value);
+                                 if (!isNaN(val)) updateCartPrice(item.id, val);
+                               }}
+                               className="w-16 bg-[#0a0f1c] border border-slate-800 rounded px-1.5 py-0.5 text-white text-xs font-mono font-bold focus:ring-1 focus:ring-primary focus:outline-none"
+                             />
+                             <span className="text-slate-550 font-medium">un</span>
+                           </div>
                         )}
                       </div>
                     </div>
@@ -469,7 +488,21 @@ export default function PDVPage() {
                           {item.isFreebie ? (
                             <span className="text-green-400 font-extrabold">BRINDE</span>
                           ) : (
-                            <span className="font-semibold">R$ {item.price.toFixed(2)} un</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-450 font-medium">R$</span>
+                              <input 
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.price}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (!isNaN(val)) updateCartPrice(item.id, val);
+                                }}
+                                className="w-16 bg-[#0a0f1c] border border-slate-800 rounded px-1.5 py-0.5 text-white text-xs font-mono font-bold focus:ring-1 focus:ring-primary focus:outline-none"
+                              />
+                              <span className="text-slate-550 font-medium">un</span>
+                            </div>
                           )}
                         </div>
                       </div>
